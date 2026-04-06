@@ -2,30 +2,18 @@
 
 import React, { useState, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Home, Mail, Lock, User, Phone, MapPin, Eye, EyeOff, ArrowLeft, Terminal } from "lucide-react"
+import { Home, Mail, Lock, User, Phone, Eye, EyeOff, ArrowLeft, CheckCircle, Circle } from "lucide-react"
 import { useAuth } from "@/src/context/AuthContext"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { useToast } from "@/hooks/use-toast"
-import { Skeleton } from "@/components/ui/skeleton"
 
 export default function AuthPages() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const { toast } = useToast();
-  const modeParam = searchParams?.get("mode");
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const modeParam = searchParams?.get("mode")
 
+  const [authMode, setAuthMode] = useState<"login" | "register">(modeParam === "signup" ? "register" : "login")
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const [userType, setUserType] = useState<"tenant" | "landlord">("tenant")
-  const [currentView, setCurrentView] = useState("auth") // auth, forgot-password
-  const [authMode, setAuthMode] = useState<"login" | "register">("login")
-  const { login, register } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -33,254 +21,282 @@ export default function AuthPages() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [passwordTouched, setPasswordTouched] = useState(false)
-  const [confirmPasswordTouched, setConfirmPasswordTouched] = useState(false)
-  const [passwordValidations, setPasswordValidations] = useState({
-    minLength: false,
-    uppercase: false,
-    number: false,
-    specialChar: false,
-  })
   const [phone, setPhone] = useState("")
+  const [passwordTouched, setPasswordTouched] = useState(false)
 
-  // Auto-switch authMode based on ?mode=login or ?mode=signup
+  const { login, register } = useAuth()
+
+  const validations = {
+    minLength: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    number: /[0-9]/.test(password),
+    special: /[^A-Za-z0-9]/.test(password),
+  }
+  const passwordValid = Object.values(validations).every(Boolean)
+
   useEffect(() => {
-    if (modeParam === "signup" && authMode !== "register") {
-      setAuthMode("register");
-    } else if (modeParam === "login" && authMode !== "login") {
-      setAuthMode("login");
-    }
-  }, [modeParam]);
+    if (modeParam === "signup") setAuthMode("register")
+    else if (modeParam === "login") setAuthMode("login")
+  }, [modeParam])
 
-  useEffect(() => {
-    setPasswordValidations({
-      minLength: password.length >= 8,
-      uppercase: /[A-Z]/.test(password),
-      number: /[0-9]/.test(password),
-      specialChar: /[^A-Za-z0-9]/.test(password),
-    })
-  }, [password])
-
-  const toggleAuthMode = () => {
-    const newMode = authMode === "login" ? "register" : "login";
-    setAuthMode(newMode);
-    
-    // Update the URL to reflect the new mode
-    const newModeParam = newMode === "register" ? "signup" : "login";
-    router.push(`/auth-pages?mode=${newModeParam}`);
-    
-    // Clear form data when switching modes
-    setName("");
-    setEmail("");
-    setPassword("");
-    setConfirmPassword(""); // Clear confirm password
-    setPhone("");
-    setError(null);
-  };
-
-  const handleAuthAction = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+  function switchMode(mode: "login" | "register") {
+    setAuthMode(mode)
     setError(null)
+    setName(""); setEmail(""); setPassword(""); setConfirmPassword(""); setPhone("")
+    setPasswordTouched(false)
+    router.push(`/auth-pages?mode=${mode === "register" ? "signup" : "login"}`)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    if (authMode === "register") {
+      if (password !== confirmPassword) { setError("Passwords do not match."); return }
+      if (!passwordValid) { setError("Password does not meet requirements."); return }
+    }
+    setIsLoading(true)
     try {
-      if (authMode === "register") {
-        if (password !== confirmPassword) {
-          setError("Passwords do not match.")
-          setIsLoading(false)
-          return
-        }
-      }
       if (authMode === "login") {
         await login({ email, password })
-        // Show success toast for login
-        toast({
-          title: "Login Successful!",
-          description: "Welcome back to RentMatch. Redirecting you to your dashboard...",
-          variant: "default",
-        })
       } else {
         await register({ name, email, password, phone, userType })
-        // Show success toast for registration
-        toast({
-          title: "Registration Successful!",
-          description: `Welcome to RentMatch! Your ${userType} account has been created successfully.`,
-          variant: "default",
-        })
       }
     } catch (err: any) {
-      setError(err.message || "An error occurred.")
+      setError(err.message || "Something went wrong. Please try again.")
     } finally {
       setIsLoading(false)
     }
   }
 
-  if (currentView === "forgot-password") {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <Button variant="ghost" size="sm" className="absolute left-4 top-4" onClick={() => setCurrentView("auth")}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <div className="flex items-center justify-center space-x-2 mb-4">
-              <Home className="h-8 w-8 text-blue-600" />
-              <span className="text-2xl font-bold text-gray-900">RentMatch</span>
-            </div>
-            <CardTitle className="text-2xl">Reset Password</CardTitle>
-            <CardDescription>
-              Enter your email address and we'll send you a link to reset your password.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="reset-email">Email Address</Label>
+  return (
+    <div className="min-h-screen flex">
+      {/* Left panel — branding */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gray-950 flex-col justify-between p-12">
+        <button onClick={() => router.push("/")} className="flex items-center gap-2 w-fit">
+          <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center">
+            <Home className="h-4 w-4 text-white" />
+          </div>
+          <span className="text-white font-semibold text-lg">RentMatch</span>
+        </button>
+
+        <div>
+          <h2 className="text-4xl font-bold text-white leading-tight mb-4">
+            The smarter way<br />to find a home.
+          </h2>
+          <p className="text-gray-400 text-lg leading-relaxed max-w-sm">
+            Set your preferences once. Get matched to properties that actually fit your budget, location, and lifestyle.
+          </p>
+          <div className="mt-10 space-y-4">
+            {[
+              "Smart matching based on your preferences",
+              "Book viewings and pay deposits securely",
+              "Connect directly with verified landlords",
+            ].map((t, i) => (
+              <div key={i} className="flex items-center gap-3 text-gray-400">
+                <CheckCircle className="h-5 w-5 text-blue-400 shrink-0" />
+                <span className="text-sm">{t}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <p className="text-gray-600 text-sm">Smart property matching for Nigeria's rental market</p>
+      </div>
+
+      {/* Right panel — form */}
+      <div className="flex-1 flex flex-col justify-center px-6 py-12 lg:px-16 bg-white">
+        {/* Mobile logo */}
+        <div className="lg:hidden flex items-center gap-2 mb-8">
+          <div className="w-7 h-7 bg-gray-900 rounded-lg flex items-center justify-center">
+            <Home className="h-4 w-4 text-white" />
+          </div>
+          <span className="font-semibold text-gray-900">RentMatch</span>
+        </div>
+
+        <div className="max-w-md w-full mx-auto">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">
+              {authMode === "login" ? "Welcome back" : "Create your account"}
+            </h1>
+            <p className="text-gray-500 text-sm">
+              {authMode === "login"
+                ? "Sign in to your RentMatch account"
+                : "Join thousands finding homes smarter"}
+            </p>
+          </div>
+
+          {/* Mode toggle */}
+          <div className="flex bg-gray-100 rounded-lg p-1 mb-6">
+            <button
+              onClick={() => switchMode("login")}
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${authMode === "login" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+            >
+              Sign In
+            </button>
+            <button
+              onClick={() => switchMode("register")}
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${authMode === "register" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+            >
+              Create Account
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {authMode === "register" && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="Joseph Olayanju"
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                <Input id="reset-email" type="email" placeholder="Enter your email" className="pl-10" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="email"
+                  required
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400"
+                />
               </div>
             </div>
-            <Button className="w-full">Send Reset Link</Button>
-            <div className="text-center text-sm text-gray-600">
-              Remember your password?{" "}
-              <button onClick={() => setCurrentView("auth")} className="text-blue-600 hover:underline">
-                Sign in
-              </button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
 
-  return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-950">
-      <Card className="mx-auto max-w-md w-full">
-        <CardHeader>
-          <CardTitle className="text-2xl">{authMode === "login" ? "Login" : "Register"}</CardTitle>
-          <CardDescription>
-            {authMode === "login" ? "Enter your email below to login to your account" : "Create an account to get started"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleAuthAction}>
-            <div className="grid gap-4">
-              {authMode === "register" && (
-                <div className="grid gap-2">
-                  <Label htmlFor="full-name">Full Name</Label>
-                  <Input id="full-name" placeholder="John Doe" required value={name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)} />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={e => { setPassword(e.target.value); setPasswordTouched(true) }}
+                  className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400"
+                />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {authMode === "register" && passwordTouched && (
+                <div className="mt-2 grid grid-cols-2 gap-1">
+                  {[
+                    { key: "minLength", label: "8+ characters" },
+                    { key: "uppercase", label: "Uppercase letter" },
+                    { key: "number", label: "Number" },
+                    { key: "special", label: "Special character" },
+                  ].map(v => (
+                    <div key={v.key} className={`flex items-center gap-1.5 text-xs ${validations[v.key as keyof typeof validations] ? "text-green-600" : "text-gray-400"}`}>
+                      {validations[v.key as keyof typeof validations]
+                        ? <CheckCircle className="h-3 w-3" />
+                        : <Circle className="h-3 w-3" />}
+                      {v.label}
+                    </div>
+                  ))}
                 </div>
               )}
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="m@example.com"
-                  required
-                  value={email}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                </div>
-                <Input
-                  id="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                    setPassword(e.target.value)
-                    setPasswordTouched(true)
-                  }}
-                  onBlur={() => setPasswordTouched(true)}
-                />
-                {authMode === "register" && passwordTouched && (
-                  <div className="text-xs mt-1 space-y-1">
-                    <div className="flex items-center gap-1">
-                      <span>{passwordValidations.minLength ? "✅" : "⬜"}</span>
-                      <span>At least 8 characters</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span>{passwordValidations.uppercase ? "✅" : "⬜"}</span>
-                      <span>One uppercase letter</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span>{passwordValidations.number ? "✅" : "⬜"}</span>
-                      <span>One number</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span>{passwordValidations.specialChar ? "✅" : "⬜"}</span>
-                      <span>One special character</span>
-                    </div>
+            </div>
+
+            {authMode === "register" && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirm Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type={showConfirm ? "text" : "password"}
+                      required
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      className={`w-full pl-10 pr-10 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400 ${confirmPassword && confirmPassword !== password ? "border-red-300" : "border-gray-200"}`}
+                    />
+                    <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
                   </div>
-                )}
-              </div>
-              {authMode === "register" && (
-                <div className="grid gap-2">
-                  <Label htmlFor="confirm-password">Confirm Password</Label>
-                  <Input
-                    id="confirm-password"
-                    type="password"
-                    required
-                    value={confirmPassword}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      setConfirmPassword(e.target.value)
-                      setConfirmPasswordTouched(true)
-                    }}
-                    onBlur={() => setConfirmPasswordTouched(true)}
-                  />
-                  {confirmPasswordTouched && confirmPassword && (
-                    <span className={`text-xs mt-1 ${confirmPassword !== password ? "text-red-500" : "text-green-600"}`}>
-                      {confirmPassword !== password ? "Passwords do not match" : "Passwords match"}
-                    </span>
+                  {confirmPassword && confirmPassword !== password && (
+                    <p className="text-xs text-red-500 mt-1">Passwords do not match</p>
                   )}
                 </div>
-              )}
-              {authMode === "register" && (
-                <>
-                  <div className="grid gap-2">
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input id="phone" placeholder="+1234567890" required value={phone} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPhone(e.target.value)} />
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone Number</label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="tel"
+                      required
+                      placeholder="+234 810 000 0000"
+                      value={phone}
+                      onChange={e => setPhone(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400"
+                    />
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="user-type">I am a</Label>
-                    <Select onValueChange={(value: "tenant" | "landlord") => setUserType(value)} defaultValue={userType}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select user type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="tenant">Tenant</SelectItem>
-                        <SelectItem value="landlord">Landlord</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </>
-              )}
-              {isLoading ? (
-                <Skeleton className="h-64 w-full rounded-lg" />
-              ) : error ? (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <span className="text-red-500 mb-2">{error}</span>
-                  <Button onClick={() => window.location.reload()}>Retry</Button>
                 </div>
-              ) : (
-                <Button type="submit" className="w-full" disabled={isLoading || (authMode === "register" && (password !== confirmPassword || !Object.values(passwordValidations).every(Boolean)))}>
-                  {isLoading ? "Processing..." : authMode === "login" ? "Login" : "Create an account"}
-                </Button>
-              )}
-            </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">I am a</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(["tenant", "landlord"] as const).map(type => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setUserType(type)}
+                        className={`py-2.5 px-4 rounded-lg border text-sm font-medium capitalize transition-all ${userType === type ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-600 hover:border-gray-300"}`}
+                      >
+                        {type === "tenant" ? "Tenant" : "Landlord / Agent"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-600">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isLoading || (authMode === "register" && (!passwordValid || password !== confirmPassword))}
+              className="w-full bg-gray-900 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-lg text-sm transition-colors"
+            >
+              {isLoading
+                ? "Please wait..."
+                : authMode === "login" ? "Sign In" : "Create Account"}
+            </button>
           </form>
-          <div className="mt-4 text-center text-sm">
+
+          <p className="text-center text-sm text-gray-500 mt-6">
             {authMode === "login" ? "Don't have an account? " : "Already have an account? "}
-            <Button variant="link" onClick={toggleAuthMode} className="p-0">
+            <button
+              onClick={() => switchMode(authMode === "login" ? "register" : "login")}
+              className="text-blue-600 font-medium hover:underline"
+            >
               {authMode === "login" ? "Sign up" : "Sign in"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+            </button>
+          </p>
+
+          <p className="text-center text-xs text-gray-400 mt-4">
+            By continuing you agree to our Terms of Service and Privacy Policy.
+          </p>
+        </div>
+      </div>
     </div>
   )
-} 
+}
