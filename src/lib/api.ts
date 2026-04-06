@@ -9,7 +9,7 @@ const apiClient = axios.create({
     "Cache-Control": "no-cache",
     "Pragma": "no-cache",
   },
-  timeout: 10000, // 10 second timeout
+  timeout: 60000, // 60 second timeout — accounts for Render free tier cold starts
 })
 
 // Function to get the token from localStorage

@@ -66,6 +66,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { communicationApi } from "@/src/lib/communicationApi";
 import { RequestViewingModal } from "@/components/common/RequestViewingModal";
+import { paymentsApi } from "@/src/lib/paymentsApi";
+import { CreditCard } from "lucide-react";
 
 export default function TenantDashboard() {
   const { user, isLoading: authLoading } = useAuth();
@@ -411,6 +413,19 @@ export default function TenantDashboard() {
         description: "Failed to request viewing. Please try again.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handlePayDeposit = async (viewingId: string) => {
+    try {
+      const res = await paymentsApi.createDepositSession(viewingId);
+      if (res.success && res.data?.checkout_url) {
+        window.location.href = res.data.checkout_url;
+      } else {
+        toast({ title: "Payment Error", description: res.message || "Could not start checkout.", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Payment Error", description: "Failed to create payment session.", variant: "destructive" });
     }
   };
 
@@ -962,6 +977,19 @@ export default function TenantDashboard() {
                                   </p>
                                 )}
                               </div>
+                              {viewing.status === "confirmed" && (
+                                <div className="flex flex-col items-end gap-2 ml-4">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handlePayDeposit(viewing._id)}
+                                    className="bg-green-600 hover:bg-green-700 text-white whitespace-nowrap"
+                                  >
+                                    <CreditCard className="h-4 w-4 mr-2" />
+                                    Pay £50 Deposit
+                                  </Button>
+                                  <p className="text-xs text-muted-foreground text-right">Refunded after viewing</p>
+                                </div>
+                              )}
                             </div>
                           </CardContent>
                         </Card>

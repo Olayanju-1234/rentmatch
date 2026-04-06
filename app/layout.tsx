@@ -9,27 +9,27 @@ import { AuthLoader } from "@/components/ui/auth-loader"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: 'RentMatch - Linear Programming Optimization',
-  description: 'Final Year Project: Linear Programming Optimization for Tenant-Property Matching in Nigeria',
-  keywords: ['rental', 'property', 'optimization', 'linear programming', 'Nigeria', 'final year project'],
+  title: 'RentMatch - Smart Property Matching',
+  description: 'Find your perfect rental. RentMatch connects tenants with properties using intelligent matching based on your preferences and budget.',
+  keywords: ['rental', 'property', 'tenant', 'landlord', 'property matching', 'Nigeria', 'apartments'],
   authors: [{ name: 'Joseph Olayanju' }],
   creator: 'Joseph Olayanju',
-  publisher: 'University Final Year Project',
+  publisher: 'RentMatch',
   formatDetection: {
     email: false,
     address: false,
     telephone: false,
   },
-  metadataBase: new URL('http://localhost:3000'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
   openGraph: {
-    title: 'RentMatch - Linear Programming Optimization',
-    description: 'Final Year Project: Linear Programming Optimization for Tenant-Property Matching',
+    title: 'RentMatch - Smart Property Matching',
+    description: 'Find your perfect rental. Intelligent matching based on your preferences and budget.',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'RentMatch - Linear Programming Optimization',
-    description: 'Final Year Project: Linear Programming Optimization for Tenant-Property Matching',
+    title: 'RentMatch - Smart Property Matching',
+    description: 'Find your perfect rental. Intelligent matching based on your preferences and budget.',
   },
 }
 
