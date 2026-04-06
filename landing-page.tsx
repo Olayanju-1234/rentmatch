@@ -43,7 +43,7 @@ export default function LandingPage() {
           setStats({
             properties: String(statsRes.data.totalProperties ?? "-"),
             available: String(statsRes.data.availableProperties ?? "-"),
-            accuracy: statsRes.data.averageMatchScore ? `${statsRes.data.averageMatchScore}%` : "-",
+            accuracy: statsRes.data.averageMatchScore ? `${String(statsRes.data.averageMatchScore).replace('%', '')}%` : "-",
             views: String(statsRes.data.totalViews ?? "-"),
           })
         }
