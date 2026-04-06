@@ -85,15 +85,26 @@ export default function TenantDashboard() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [viewings, setViewings] = useState<any[]>([]);
   const [loadingViewings, setLoadingViewings] = useState(false);
+  const [depositStatuses, setDepositStatuses] = useState<Record<string, string>>({});
 
-  // Add a function to fetch viewing requests (reuse logic from useEffect)
   const fetchViewings = async () => {
     if (!user) return;
     setLoadingViewings(true);
     try {
       const response = await communicationApi.getViewings(undefined, undefined, undefined, 'tenant');
       if (response.success) {
-        setViewings((response.data ?? []).map((v: any) => convertBackendToFrontend.viewing(v)));
+        const converted = (response.data ?? []).map((v: any) => convertBackendToFrontend.viewing(v));
+        setViewings(converted);
+        // Fetch deposit status for all confirmed viewings
+        const confirmed = converted.filter((v: any) => v.status === 'confirmed');
+        const statuses: Record<string, string> = {};
+        await Promise.all(confirmed.map(async (v: any) => {
+          try {
+            const res = await paymentsApi.getDepositStatus(v._id);
+            if (res.success && res.data) statuses[v._id] = res.data.status;
+          } catch { /* no payment record yet */ }
+        }));
+        setDepositStatuses(statuses);
       } else {
         setViewings([]);
       }
@@ -979,15 +990,26 @@ export default function TenantDashboard() {
                               </div>
                               {viewing.status === "confirmed" && (
                                 <div className="flex flex-col items-end gap-2 ml-4">
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handlePayDeposit(viewing._id)}
-                                    className="bg-green-600 hover:bg-green-700 text-white whitespace-nowrap"
-                                  >
-                                    <CreditCard className="h-4 w-4 mr-2" />
-                                    Pay £50 Deposit
-                                  </Button>
-                                  <p className="text-xs text-muted-foreground text-right">Refunded after viewing</p>
+                                  {depositStatuses[viewing._id] === "paid" ? (
+                                    <>
+                                      <Badge className="bg-green-100 text-green-700 border-green-300">
+                                        ✓ Deposit Paid
+                                      </Badge>
+                                      <p className="text-xs text-muted-foreground text-right">Refunded after viewing</p>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handlePayDeposit(viewing._id)}
+                                        className="bg-green-600 hover:bg-green-700 text-white whitespace-nowrap"
+                                      >
+                                        <CreditCard className="h-4 w-4 mr-2" />
+                                        Pay £50 Deposit
+                                      </Button>
+                                      <p className="text-xs text-muted-foreground text-right">Refunded after viewing</p>
+                                    </>
+                                  )}
                                 </div>
                               )}
                             </div>
