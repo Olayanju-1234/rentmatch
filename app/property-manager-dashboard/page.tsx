@@ -621,6 +621,25 @@ export default function PropertyManagerDashboard() {
     }
   }
 
+  const handleUpdateViewingStatus = async (
+    viewingId: string,
+    status: "confirmed" | "cancelled" | "completed"
+  ) => {
+    try {
+      const res = await communicationApi.updateViewingStatus(viewingId, status);
+      if (res.success) {
+        setViewingRequests((prev) =>
+          prev.map((v) => (v._id === viewingId ? { ...v, status } : v))
+        );
+        toast({ title: `Viewing ${status}`, description: `The viewing has been ${status}.` });
+      } else {
+        toast({ title: "Error", description: res.message || "Failed to update viewing.", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to update viewing.", variant: "destructive" });
+    }
+  };
+
   // Calculate stats
   const totalProperties = properties.length
   const occupiedProperties = properties.filter(p => p.status === "occupied").length
@@ -1926,6 +1945,35 @@ export default function PropertyManagerDashboard() {
                                 <p className="text-sm text-muted-foreground mt-1">
                                   Notes: {viewing.notes}
                                 </p>
+                              )}
+                            </div>
+                            <div className="flex flex-col gap-2 ml-4">
+                              {viewing.status === "pending" && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    className="bg-green-600 hover:bg-green-700 text-white"
+                                    onClick={() => handleUpdateViewingStatus(viewing._id, "confirmed")}
+                                  >
+                                    <CheckCircle className="h-4 w-4 mr-1" /> Confirm
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => handleUpdateViewingStatus(viewing._id, "cancelled")}
+                                  >
+                                    <XCircle className="h-4 w-4 mr-1" /> Cancel
+                                  </Button>
+                                </>
+                              )}
+                              {viewing.status === "confirmed" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleUpdateViewingStatus(viewing._id, "completed")}
+                                >
+                                  <Clock className="h-4 w-4 mr-1" /> Mark Completed
+                                </Button>
                               )}
                             </div>
                           </div>
