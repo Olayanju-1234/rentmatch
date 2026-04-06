@@ -48,6 +48,7 @@ export default function TenantDashboard() {
   const [viewings, setViewings] = useState<any[]>([]);
   const [loadingViewings, setLoadingViewings] = useState(false);
   const [depositStatuses, setDepositStatuses] = useState<Record<string, string>>({});
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const fetchViewings = async () => {
     if (!user) return;
@@ -91,6 +92,10 @@ export default function TenantDashboard() {
           } else {
             await fetchMatches(converted);
           }
+          // Fetch saved properties so the Saved tab always shows them
+          if (converted.savedProperties?.length) {
+            await fetchSavedProperties(converted.savedProperties);
+          }
         } else {
           setShowPreferencesModal(true);
         }
@@ -106,6 +111,20 @@ export default function TenantDashboard() {
   useEffect(() => {
     if (user) fetchViewings();
   }, [user]);
+
+  const fetchSavedProperties = async (savedIds: string[]) => {
+    if (!savedIds.length) return;
+    const results = await Promise.allSettled(savedIds.map((id) => propertiesApi.getById(id)));
+    const fetched = results
+      .filter((r): r is PromiseFulfilledResult<any> => r.status === "fulfilled")
+      .map((r) => convertBackendToFrontend.property(r.value.data))
+      .filter(Boolean) as IProperty[];
+    setProperties((prev) => {
+      const existingIds = new Set(prev.map((p) => p._id));
+      const newOnes = fetched.filter((p) => !existingIds.has(p._id));
+      return [...prev, ...newOnes];
+    });
+  };
 
   const fetchMatches = async (tenantData: ITenant) => {
     if (!tenantData._id) return;
@@ -257,10 +276,49 @@ export default function TenantDashboard() {
             <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
               <Bell className="h-5 w-5" />
             </button>
-            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-              <span className="text-xs font-semibold text-blue-700">
-                {user.name?.charAt(0).toUpperCase()}
-              </span>
+            <div className="relative">
+              <button
+                onClick={() => setShowUserMenu((v) => !v)}
+                className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center hover:ring-2 hover:ring-blue-300 transition-all"
+              >
+                <span className="text-xs font-semibold text-blue-700">
+                  {user.name?.charAt(0).toUpperCase()}
+                </span>
+              </button>
+              {showUserMenu && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setShowUserMenu(false)} />
+                  <div className="absolute right-0 top-full mt-2 w-44 bg-white border border-gray-100 rounded-xl shadow-lg z-40 overflow-hidden py-1">
+                    <div className="px-3 py-2 border-b border-gray-50">
+                      <p className="text-xs font-semibold text-gray-900 truncate">{user.name}</p>
+                      <p className="text-[11px] text-gray-400 truncate">{user.email}</p>
+                    </div>
+                    <button
+                      onClick={() => { setShowUserMenu(false); setActiveTab("profile"); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <User className="h-3.5 w-3.5 text-gray-400" />
+                      Profile
+                    </button>
+                    <button
+                      onClick={() => { setShowUserMenu(false); setActiveTab("preferences"); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <Settings className="h-3.5 w-3.5 text-gray-400" />
+                      Preferences
+                    </button>
+                    <div className="border-t border-gray-50 mt-1">
+                      <button
+                        onClick={() => { setShowUserMenu(false); logout(); router.push("/"); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                      >
+                        <LogOut className="h-3.5 w-3.5" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
