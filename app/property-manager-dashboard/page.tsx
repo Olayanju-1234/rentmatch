@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useSearchParams } from "next/navigation"
 import { MessageCenter } from "@/components/communication/MessageCenter"
 import { ProfileManager } from "@/components/profile/ProfileManager"
@@ -33,6 +34,9 @@ import {
   TrendingUp,
   Crown,
   Receipt,
+  LogOut,
+  Settings,
+  User,
 } from "lucide-react"
 import { paymentsApi } from "@/src/lib/paymentsApi"
 import type { PropertyReview } from "@/src/lib/paymentsApi"
@@ -96,7 +100,9 @@ export default function PropertyManagerDashboard() {
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<Toast>(null)
 
-  const { user, isLoading } = useAuth()
+  const { user, isLoading, logout } = useAuth()
+  const router = useRouter()
+  const [showUserMenu, setShowUserMenu] = useState(false)
   const searchParams = useSearchParams()
 
   const [tenantMatches, setTenantMatches] = useState<any[]>([])
@@ -894,8 +900,44 @@ export default function PropertyManagerDashboard() {
             <button className="relative w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
               <Bell className="h-4 w-4 text-gray-500" />
             </button>
-            <div className="w-8 h-8 bg-gray-900 text-white rounded-full flex items-center justify-center text-xs font-semibold">
-              {user?.name?.[0]?.toUpperCase() ?? "L"}
+            <div className="relative">
+              <button
+                onClick={() => setShowUserMenu((v) => !v)}
+                className="w-8 h-8 bg-gray-900 text-white rounded-full flex items-center justify-center text-xs font-semibold hover:ring-2 hover:ring-gray-400 transition-all"
+              >
+                {user?.name?.[0]?.toUpperCase() ?? "L"}
+              </button>
+              {showUserMenu && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setShowUserMenu(false)} />
+                  <div className="absolute right-0 top-full mt-2 w-44 bg-white border border-gray-100 rounded-xl shadow-lg z-40 overflow-hidden py-1">
+                    <div className="px-3 py-2 border-b border-gray-50">
+                      <p className="text-xs font-semibold text-gray-900 truncate">{user?.name}</p>
+                      <p className="text-[11px] text-gray-400 truncate">{user?.email}</p>
+                    </div>
+                    <button
+                      onClick={() => { setShowUserMenu(false); setActiveTab("account"); setAccountSubTab("profile"); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <User className="h-3.5 w-3.5 text-gray-400" /> Profile
+                    </button>
+                    <button
+                      onClick={() => { setShowUserMenu(false); setActiveTab("account"); setAccountSubTab("subscription"); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <Settings className="h-3.5 w-3.5 text-gray-400" /> Account
+                    </button>
+                    <div className="border-t border-gray-50 mt-1">
+                      <button
+                        onClick={() => { setShowUserMenu(false); logout(); router.push("/"); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                      >
+                        <LogOut className="h-3.5 w-3.5" /> Sign Out
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
