@@ -76,6 +76,15 @@ export const paymentsApi = {
     return response.data
   },
 
+  // Verify Paystack payment after inline popup callback
+  verifyPaystackDeposit: async (viewingId: string, reference: string): Promise<ApiResponse<DepositStatus>> => {
+    const response = await apiClient.post<ApiResponse<DepositStatus>>(
+      `/payments/viewing/${viewingId}/deposit/paystack/verify`,
+      { reference }
+    )
+    return response.data
+  },
+
   getDepositStatus: async (viewingId: string): Promise<ApiResponse<DepositStatus>> => {
     const response = await apiClient.get<ApiResponse<DepositStatus>>(
       `/payments/viewing/${viewingId}/deposit`

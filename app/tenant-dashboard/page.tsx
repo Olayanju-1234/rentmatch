@@ -338,8 +338,11 @@ export default function TenantDashboard() {
         ref: reference,
         onClose: () => { },
         callback: async () => {
-          toast({ title: "Payment Received", description: "Your deposit is being confirmed." });
-          await fetchViewings();
+          // Verify on our backend then redirect to deposit-success — same UX as Stripe
+          try {
+            await paymentsApi.verifyPaystackDeposit(viewingId, reference);
+          } catch { /* best-effort; webhook will confirm regardless */ }
+          router.push(`/viewings/${viewingId}/deposit-success?provider=paystack`);
         },
       });
       handler.openIframe();
