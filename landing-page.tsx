@@ -34,6 +34,149 @@ const TESTIMONIALS = [
   },
 ]
 
+const MOCK_PROPERTIES = [
+  { id: "1", title: "Modern 2-Bed, Lekki Phase 1", rent: 1_200_000, bedrooms: 2, city: "Lekki", amenities: ["wifi", "parking", "security"] },
+  { id: "2", title: "Cosy Studio, Yaba", rent: 480_000, bedrooms: 1, city: "Yaba", amenities: ["wifi"] },
+  { id: "3", title: "3-Bed Duplex, Ajah", rent: 1_800_000, bedrooms: 3, city: "Ajah", amenities: ["wifi", "parking", "security", "generator"] },
+  { id: "4", title: "2-Bed Flat, Ikeja GRA", rent: 900_000, bedrooms: 2, city: "Ikeja", amenities: ["parking", "security", "generator"] },
+  { id: "5", title: "Executive 4-Bed, VI", rent: 4_500_000, bedrooms: 4, city: "Victoria Island", amenities: ["wifi", "parking", "security", "generator"] },
+]
+
+function calcMatchScore(pref: { budget: number; bedrooms: number; city: string; amenities: string[] }, prop: typeof MOCK_PROPERTIES[0]) {
+  let score = 0
+  // Budget: within range = full points, over = 0
+  const budgetRatio = pref.budget / prop.rent
+  if (budgetRatio >= 1) score += 40
+  else if (budgetRatio >= 0.85) score += 25
+  else if (budgetRatio >= 0.7) score += 10
+  // Bedrooms
+  if (prop.bedrooms === pref.bedrooms) score += 25
+  else if (Math.abs(prop.bedrooms - pref.bedrooms) === 1) score += 12
+  // City
+  if (prop.city === pref.city) score += 20
+  // Amenities
+  const matched = pref.amenities.filter((a) => prop.amenities.includes(a)).length
+  score += Math.round((matched / Math.max(pref.amenities.length, 1)) * 15)
+  return Math.min(score, 100)
+}
+
+function MatchDemo() {
+  const [budget, setBudget] = useState(1_200_000)
+  const [bedrooms, setBedrooms] = useState(2)
+  const [city, setCity] = useState("Lekki")
+  const [amenities, setAmenities] = useState<string[]>(["wifi", "parking"])
+
+  const results = MOCK_PROPERTIES
+    .map((p) => ({ ...p, score: calcMatchScore({ budget, bedrooms, city, amenities }, p) }))
+    .sort((a, b) => b.score - a.score)
+
+  const toggleAmenity = (a: string) =>
+    setAmenities((prev) => prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a])
+
+  return (
+    <section className="py-24 bg-gray-50 border-y border-gray-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-12">
+          <span className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-3 block">Try it now</span>
+          <h2 className="text-3xl lg:text-4xl font-black text-gray-900 mb-3">See the algorithm in action</h2>
+          <p className="text-gray-500 max-w-xl mx-auto text-sm">Adjust your preferences and watch the match scores update instantly. No sign-up required.</p>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-8 items-start">
+          {/* Controls */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-6">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-semibold text-gray-900">Monthly Budget</label>
+                <span className="text-sm font-bold text-blue-600">₦{(budget / 12).toLocaleString()}/mo</span>
+              </div>
+              <input
+                type="range"
+                min={300_000} max={5_000_000} step={50_000}
+                value={budget}
+                onChange={(e) => setBudget(Number(e.target.value))}
+                className="w-full accent-blue-600"
+              />
+              <div className="flex justify-between text-xs text-gray-400 mt-1">
+                <span>₦25k/mo</span><span>₦417k/mo</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-semibold text-gray-900 block mb-2">Bedrooms</label>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setBedrooms(n)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all ${bedrooms === n ? "bg-gray-900 text-white border-gray-900" : "border-gray-200 text-gray-600 hover:border-gray-300"}`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-semibold text-gray-900 block mb-2">Preferred Area</label>
+              <div className="flex flex-wrap gap-2">
+                {["Lekki", "Yaba", "Ajah", "Ikeja", "Victoria Island"].map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setCity(c)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${city === c ? "bg-blue-600 text-white border-blue-600" : "border-gray-200 text-gray-600 hover:border-gray-300"}`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-semibold text-gray-900 block mb-2">Must-have Amenities</label>
+              <div className="flex flex-wrap gap-2">
+                {[["wifi", "WiFi"], ["parking", "Parking"], ["security", "Security"], ["generator", "Generator"]].map(([id, label]) => (
+                  <button
+                    key={id}
+                    onClick={() => toggleAmenity(id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${amenities.includes(id) ? "bg-gray-900 text-white border-gray-900" : "border-gray-200 text-gray-600 hover:border-gray-300"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Results */}
+          <div className="space-y-3">
+            {results.map((p, i) => (
+              <div key={p.id} className={`bg-white rounded-xl border p-4 flex items-center gap-4 transition-all ${i === 0 ? "border-blue-300 shadow-sm" : "border-gray-100"}`}>
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm font-black shrink-0 ${i === 0 ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500"}`}>
+                  {i + 1}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">{p.title}</p>
+                  <p className="text-xs text-gray-400">₦{p.rent.toLocaleString()}/yr · {p.bedrooms} bed</p>
+                  <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${p.score >= 70 ? "bg-blue-500" : p.score >= 45 ? "bg-amber-400" : "bg-gray-300"}`}
+                      style={{ width: `${p.score}%` }}
+                    />
+                  </div>
+                </div>
+                <div className={`text-sm font-black shrink-0 ${p.score >= 70 ? "text-blue-600" : p.score >= 45 ? "text-amber-600" : "text-gray-400"}`}>
+                  {p.score}%
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const router = useRouter()
@@ -436,6 +579,9 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* Interactive match demo */}
+      <MatchDemo />
 
       {/* For landlords */}
       <section className="py-24 bg-gray-950 text-white">
