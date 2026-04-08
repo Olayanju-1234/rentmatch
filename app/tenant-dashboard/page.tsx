@@ -85,6 +85,8 @@ export default function TenantDashboard() {
   const [properties, setProperties] = useState<IProperty[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchingMatches, setFetchingMatches] = useState(false);
+  // propertyId → { avg: number; total: number }
+  const [propertyRatings, setPropertyRatings] = useState<Record<string, { avg: number; total: number }>>({});
   const [activeTab, setActiveTab] = useState<Tab>("matches");
   const [showPreferencesModal, setShowPreferencesModal] = useState(false);
   const [showViewingModal, setShowViewingModal] = useState(false);
@@ -231,6 +233,18 @@ export default function TenantDashboard() {
           .map((r) => convertBackendToFrontend.property(r.value.data))
           .filter(Boolean);
         setProperties(valid);
+
+        // Fetch review summaries in parallel — shown on each match card
+        const reviewResults = await Promise.allSettled(ids.map((id) => paymentsApi.getPropertyReviews(id)));
+        const ratings: Record<string, { avg: number; total: number }> = {};
+        reviewResults.forEach((r, i) => {
+          if (r.status === "fulfilled" && r.value.success && Array.isArray(r.value.data) && r.value.data.length) {
+            const list = r.value.data;
+            const avg = list.reduce((s: number, rv: any) => s + rv.rating, 0) / list.length;
+            ratings[ids[i]] = { avg: Math.round(avg * 10) / 10, total: list.length };
+          }
+        });
+        setPropertyRatings(ratings);
       } else {
         setMatches([]);
       }
@@ -708,6 +722,14 @@ export default function TenantDashboard() {
                           <div className="mt-2 h-1.5 w-24 bg-gray-100 rounded-full overflow-hidden">
                             <div className="h-full bg-blue-500 rounded-full" style={{ width: `${score}%` }} />
                           </div>
+                          {propertyRatings[match.propertyId] && (
+                            <div className="mt-2 flex items-center justify-end gap-1">
+                              {[1,2,3,4,5].map((s) => (
+                                <Star key={s} className={`h-3 w-3 ${s <= Math.round(propertyRatings[match.propertyId].avg) ? "fill-yellow-400 text-yellow-400" : "text-gray-200"}`} />
+                              ))}
+                              <span className="text-xs text-gray-400 ml-1">{propertyRatings[match.propertyId].avg} ({propertyRatings[match.propertyId].total})</span>
+                            </div>
+                          )}
                         </div>
                       </div>
 
