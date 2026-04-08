@@ -28,7 +28,14 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  Star,
+  CreditCard,
+  TrendingUp,
+  Crown,
+  Receipt,
 } from "lucide-react"
+import { paymentsApi } from "@/src/lib/paymentsApi"
+import type { PropertyReview } from "@/src/lib/paymentsApi"
 import { optimizationApi } from "@/src/lib/optimizationApi"
 import { communicationApi } from "@/src/lib/communicationApi"
 
@@ -50,7 +57,10 @@ const TABS = [
   { id: "properties", label: "My Properties" },
   { id: "matches", label: "Tenant Matches" },
   { id: "viewings", label: "Viewing Requests" },
+  { id: "rent-payments", label: "Rent Payments" },
+  { id: "reviews", label: "Reviews" },
   { id: "analytics", label: "Analytics" },
+  { id: "subscription", label: "Subscription" },
   { id: "communications", label: "Messages" },
   { id: "profile", label: "Profile" },
 ]
@@ -102,6 +112,15 @@ export default function PropertyManagerDashboard() {
   const [marketStatsLoading, setMarketStatsLoading] = useState(true)
   const [marketStatsError, setMarketStatsError] = useState<string | null>(null)
 
+  // Reviews
+  const [allReviews, setAllReviews] = useState<PropertyReview[]>([])
+  const [loadingReviews, setLoadingReviews] = useState(false)
+
+  // Rent payment tracking
+  const [rentPayments, setRentPayments] = useState<any[]>([])
+  const [showRentForm, setShowRentForm] = useState(false)
+  const [rentFormData, setRentFormData] = useState({ propertyId: "", tenantName: "", amount: "", month: "", notes: "", status: "paid" as "paid" | "pending" | "late" })
+
   // Form state
   const [formData, setFormData] = useState({
     title: "",
@@ -124,6 +143,52 @@ export default function PropertyManagerDashboard() {
   function showToast(type: "success" | "error", message: string) {
     setToast({ type, message })
     setTimeout(() => setToast(null), 4000)
+  }
+
+  // Load reviews whenever properties are loaded
+  useEffect(() => {
+    if (!properties.length) return
+    setLoadingReviews(true)
+    Promise.allSettled(properties.map((p) => paymentsApi.getPropertyReviews(p._id.toString())))
+      .then((results) => {
+        const combined: PropertyReview[] = []
+        results.forEach((r) => {
+          if (r.status === "fulfilled" && r.value.success && r.value.data) {
+            combined.push(...r.value.data)
+          }
+        })
+        setAllReviews(combined)
+      })
+      .finally(() => setLoadingReviews(false))
+  }, [properties.length])
+
+  // Load rent payments from localStorage (local tracking — no backend endpoint required)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("rentmatch_rent_payments")
+      if (stored) setRentPayments(JSON.parse(stored))
+    } catch { }
+  }, [])
+
+  function saveRentPayments(updated: any[]) {
+    setRentPayments(updated)
+    localStorage.setItem("rentmatch_rent_payments", JSON.stringify(updated))
+  }
+
+  function handleAddRentPayment() {
+    if (!rentFormData.propertyId || !rentFormData.tenantName || !rentFormData.amount || !rentFormData.month) {
+      showToast("error", "Fill all required fields.")
+      return
+    }
+    const entry = { ...rentFormData, _id: Date.now().toString(), createdAt: new Date().toISOString() }
+    saveRentPayments([entry, ...rentPayments])
+    setRentFormData({ propertyId: "", tenantName: "", amount: "", month: "", notes: "", status: "paid" })
+    setShowRentForm(false)
+    showToast("success", "Rent payment recorded.")
+  }
+
+  function handleDeleteRentPayment(id: string) {
+    saveRentPayments(rentPayments.filter((r) => r._id !== id))
   }
 
   useEffect(() => {
@@ -1120,6 +1185,306 @@ export default function PropertyManagerDashboard() {
                     ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Rent Payments tab */}
+        {activeTab === "rent-payments" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">Rent Payment Tracker</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Log and track monthly rent from tenants across your properties.</p>
+              </div>
+              <button
+                onClick={() => setShowRentForm((v) => !v)}
+                className="flex items-center gap-1.5 bg-gray-900 text-white text-xs font-medium px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5" /> Log Payment
+              </button>
+            </div>
+
+            {showRentForm && (
+              <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+                <h3 className="text-sm font-semibold text-gray-900">Record Rent Payment</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 block mb-1.5">Property *</label>
+                    <select
+                      value={rentFormData.propertyId}
+                      onChange={(e) => setRentFormData((p) => ({ ...p, propertyId: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    >
+                      <option value="">Select property</option>
+                      {properties.map((p) => (
+                        <option key={p._id.toString()} value={p._id.toString()}>{p.title}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 block mb-1.5">Tenant Name *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g., Aisha Bello"
+                      value={rentFormData.tenantName}
+                      onChange={(e) => setRentFormData((p) => ({ ...p, tenantName: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 block mb-1.5">Amount (₦) *</label>
+                    <input
+                      type="number"
+                      placeholder="850000"
+                      value={rentFormData.amount}
+                      onChange={(e) => setRentFormData((p) => ({ ...p, amount: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 block mb-1.5">Month *</label>
+                    <input
+                      type="month"
+                      value={rentFormData.month}
+                      onChange={(e) => setRentFormData((p) => ({ ...p, month: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 block mb-1.5">Status</label>
+                    <select
+                      value={rentFormData.status}
+                      onChange={(e) => setRentFormData((p) => ({ ...p, status: e.target.value as any }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    >
+                      <option value="paid">Paid</option>
+                      <option value="pending">Pending</option>
+                      <option value="late">Late</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 block mb-1.5">Notes</label>
+                    <input
+                      type="text"
+                      placeholder="e.g., Paid via transfer"
+                      value={rentFormData.notes}
+                      onChange={(e) => setRentFormData((p) => ({ ...p, notes: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-1">
+                  <button
+                    onClick={handleAddRentPayment}
+                    className="bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+                  >
+                    Save Record
+                  </button>
+                  <button
+                    onClick={() => setShowRentForm(false)}
+                    className="border border-gray-200 text-gray-600 text-sm px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Summary */}
+            <div className="grid grid-cols-3 gap-4">
+              {[
+                { label: "Total Collected", value: `₦${rentPayments.filter((r) => r.status === "paid").reduce((s: number, r: any) => s + Number(r.amount), 0).toLocaleString()}`, color: "text-green-600" },
+                { label: "Pending", value: rentPayments.filter((r) => r.status === "pending").length, color: "text-yellow-600" },
+                { label: "Late", value: rentPayments.filter((r) => r.status === "late").length, color: "text-red-600" },
+              ].map((s, i) => (
+                <div key={i} className="bg-white rounded-xl border border-gray-100 p-4">
+                  <p className="text-xs text-gray-500 mb-1">{s.label}</p>
+                  <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {rentPayments.length === 0 ? (
+              <div className="bg-white rounded-xl border border-gray-100 p-10 text-center">
+                <Receipt className="h-9 w-9 text-gray-200 mx-auto mb-3" />
+                <p className="text-sm font-medium text-gray-900 mb-1">No rent payments logged yet</p>
+                <p className="text-xs text-gray-400">Click "Log Payment" to start tracking rent.</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                {rentPayments.map((r: any, i: number) => {
+                  const property = properties.find((p) => p._id.toString() === r.propertyId)
+                  const statusCls = r.status === "paid" ? "bg-green-100 text-green-700" : r.status === "late" ? "bg-red-100 text-red-600" : "bg-yellow-100 text-yellow-700"
+                  return (
+                    <div key={r._id} className={`flex items-center gap-4 p-4 ${i < rentPayments.length - 1 ? "border-b border-gray-50" : ""}`}>
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${r.status === "paid" ? "bg-green-100" : "bg-yellow-100"}`}>
+                        <CreditCard className={`h-4 w-4 ${r.status === "paid" ? "text-green-600" : "text-yellow-600"}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{r.tenantName}</p>
+                        <p className="text-xs text-gray-400">{property?.title || "Unknown Property"} · {r.month}</p>
+                        {r.notes && <p className="text-xs text-gray-400 italic">{r.notes}</p>}
+                      </div>
+                      <div className="text-right shrink-0 flex items-center gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">₦{Number(r.amount).toLocaleString()}</p>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusCls}`}>{r.status}</span>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteRentPayment(r._id)}
+                          className="text-gray-300 hover:text-red-400 transition-colors"
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Reviews tab */}
+        {activeTab === "reviews" && (
+          <div className="space-y-4">
+            <h2 className="text-sm font-semibold text-gray-900">Tenant Reviews</h2>
+            {loadingReviews ? (
+              <div className="flex justify-center py-12">
+                <div className="w-5 h-5 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
+              </div>
+            ) : allReviews.length === 0 ? (
+              <div className="bg-white rounded-xl border border-gray-100 p-10 text-center">
+                <Star className="h-9 w-9 text-gray-200 mx-auto mb-3" />
+                <p className="text-sm font-medium text-gray-900 mb-1">No reviews yet</p>
+                <p className="text-xs text-gray-400">Reviews appear here after tenants complete viewings.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {allReviews.map((review) => {
+                  const property = properties.find((p) => p._id.toString() === review.propertyId)
+                  return (
+                    <div key={review._id} className="bg-white rounded-xl border border-gray-100 p-5">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">{review.tenantName || "Anonymous Tenant"}</p>
+                          <p className="text-xs text-gray-400">{property?.title || "Property"}</p>
+                        </div>
+                        <div className="flex items-center gap-0.5">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star
+                              key={s}
+                              className={`h-4 w-4 ${s <= review.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-200"}`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      {review.comment && (
+                        <p className="text-sm text-gray-600 leading-relaxed">{review.comment}</p>
+                      )}
+                      <p className="text-xs text-gray-400 mt-2">
+                        {new Date(review.createdAt).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })}
+                      </p>
+                    </div>
+                  )
+                })}
+                {/* Average rating */}
+                {allReviews.length > 0 && (
+                  <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-center gap-4">
+                    <div className="text-4xl font-black text-gray-900">
+                      {(allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length).toFixed(1)}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-0.5 mb-1">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star
+                            key={s}
+                            className={`h-4 w-4 ${s <= Math.round(allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length) ? "fill-yellow-400 text-yellow-400" : "text-gray-200"}`}
+                          />
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-500">Based on {allReviews.length} review{allReviews.length !== 1 ? "s" : ""}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Subscription tab */}
+        {activeTab === "subscription" && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Subscription Plan</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Choose a plan to unlock more listings and features.</p>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-4">
+              {[
+                {
+                  name: "Starter",
+                  price: "Free",
+                  color: "border-gray-200",
+                  badge: null,
+                  features: ["Up to 3 listings", "Basic matching", "Email support", "Tenant messaging"],
+                  cta: "Current Plan",
+                  ctaCls: "bg-gray-100 text-gray-500 cursor-default",
+                },
+                {
+                  name: "Pro",
+                  price: "₦15,000/mo",
+                  color: "border-blue-500",
+                  badge: "Most Popular",
+                  features: ["Up to 20 listings", "Priority matching", "Featured listings", "Analytics dashboard", "Priority support"],
+                  cta: "Upgrade to Pro",
+                  ctaCls: "bg-blue-600 hover:bg-blue-700 text-white transition-colors",
+                },
+                {
+                  name: "Enterprise",
+                  price: "₦45,000/mo",
+                  color: "border-purple-500",
+                  badge: "Best Value",
+                  features: ["Unlimited listings", "AI-powered matching", "Custom subdomain", "Dedicated account manager", "API access", "White-label options"],
+                  cta: "Contact Sales",
+                  ctaCls: "bg-purple-600 hover:bg-purple-700 text-white transition-colors",
+                },
+              ].map((plan) => (
+                <div key={plan.name} className={`bg-white rounded-xl border-2 ${plan.color} p-6 relative`}>
+                  {plan.badge && (
+                    <span className={`absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-semibold px-3 py-1 rounded-full ${plan.name === "Pro" ? "bg-blue-600 text-white" : "bg-purple-600 text-white"}`}>
+                      {plan.badge}
+                    </span>
+                  )}
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Crown className={`h-4 w-4 ${plan.name === "Enterprise" ? "text-purple-500" : plan.name === "Pro" ? "text-blue-500" : "text-gray-400"}`} />
+                      <h3 className="text-sm font-semibold text-gray-900">{plan.name}</h3>
+                    </div>
+                    <p className="text-2xl font-black text-gray-900">{plan.price}</p>
+                  </div>
+                  <ul className="space-y-2 mb-6">
+                    {plan.features.map((f, i) => (
+                      <li key={i} className="flex items-center gap-2 text-xs text-gray-600">
+                        <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                  <button className={`w-full py-2.5 rounded-lg text-sm font-medium ${plan.ctaCls}`}>
+                    {plan.cta}
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-5 flex items-start gap-3">
+              <TrendingUp className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-blue-900 mb-1">Why upgrade?</p>
+                <p className="text-sm text-blue-700">Pro landlords get 3× more tenant matches and their listings appear first in search results. Most landlords on Pro fill vacancies in under 2 weeks.</p>
+              </div>
             </div>
           </div>
         )}

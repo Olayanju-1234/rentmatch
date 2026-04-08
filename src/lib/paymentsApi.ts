@@ -9,15 +9,58 @@ export interface DepositSession {
   expires_at: number
 }
 
+export interface PaystackDepositSession {
+  reference: string
+  amount: number
+  currency: string
+  email: string
+  public_key: string
+}
+
 export interface DepositStatus {
-  status: "pending" | "paid" | "refunded" | "forfeited"
+  status: "pending" | "paid" | "refunded" | "forfeited" | "refund_requested"
   amount: number
   currency: string
   paid_at?: string
+  refunded_at?: string
   refund_reason?: string
 }
 
+export interface RefundResult {
+  refund_id: string
+  status: string
+  amount: number
+  currency: string
+}
+
+export interface PaymentHistoryItem {
+  _id: string
+  viewingId: string
+  propertyTitle: string
+  propertyLocation?: string
+  amount: number
+  currency: string
+  provider: "stripe" | "paystack"
+  type: "deposit" | "refund"
+  status: "paid" | "refunded" | "forfeited" | "refund_requested"
+  paid_at: string
+  refunded_at?: string
+  refund_reason?: string
+}
+
+export interface PropertyReview {
+  _id: string
+  tenantId: string
+  propertyId: string
+  viewingId: string
+  rating: number
+  comment: string
+  createdAt: string
+  tenantName?: string
+}
+
 export const paymentsApi = {
+  // Stripe deposit checkout session
   createDepositSession: async (viewingId: string): Promise<ApiResponse<DepositSession>> => {
     const response = await apiClient.post<ApiResponse<DepositSession>>(
       `/payments/viewing/${viewingId}/deposit`
@@ -25,9 +68,53 @@ export const paymentsApi = {
     return response.data
   },
 
+  // Paystack deposit session (returns reference + public key for inline popup)
+  createPaystackDepositSession: async (viewingId: string): Promise<ApiResponse<PaystackDepositSession>> => {
+    const response = await apiClient.post<ApiResponse<PaystackDepositSession>>(
+      `/payments/viewing/${viewingId}/deposit/paystack`
+    )
+    return response.data
+  },
+
   getDepositStatus: async (viewingId: string): Promise<ApiResponse<DepositStatus>> => {
     const response = await apiClient.get<ApiResponse<DepositStatus>>(
       `/payments/viewing/${viewingId}/deposit`
+    )
+    return response.data
+  },
+
+  requestRefund: async (viewingId: string, reason?: string): Promise<ApiResponse<RefundResult>> => {
+    const response = await apiClient.post<ApiResponse<RefundResult>>(
+      `/payments/viewing/${viewingId}/refund`,
+      { reason: reason || "Viewing completed" }
+    )
+    return response.data
+  },
+
+  getPaymentHistory: async (): Promise<ApiResponse<PaymentHistoryItem[]>> => {
+    const response = await apiClient.get<ApiResponse<PaymentHistoryItem[]>>(
+      `/payments/history`
+    )
+    return response.data
+  },
+
+  // Property reviews
+  submitReview: async (data: {
+    propertyId: string
+    viewingId: string
+    rating: number
+    comment: string
+  }): Promise<ApiResponse<PropertyReview>> => {
+    const response = await apiClient.post<ApiResponse<PropertyReview>>(
+      `/reviews`,
+      data
+    )
+    return response.data
+  },
+
+  getPropertyReviews: async (propertyId: string): Promise<ApiResponse<PropertyReview[]>> => {
+    const response = await apiClient.get<ApiResponse<PropertyReview[]>>(
+      `/reviews/property/${propertyId}`
     )
     return response.data
   },
