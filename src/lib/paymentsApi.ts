@@ -118,4 +118,9 @@ export const paymentsApi = {
     )
     return response.data
   },
+
+  getActivityLog: async (): Promise<ApiResponse<any[]>> => {
+    const response = await apiClient.get<ApiResponse<any[]>>(`/payments/activity`)
+    return response.data
+  },
 }

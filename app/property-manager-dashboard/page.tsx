@@ -54,15 +54,12 @@ function hasName(obj: any): obj is { name: string } {
 type Toast = { type: "success" | "error"; message: string } | null
 
 const TABS = [
-  { id: "properties", label: "My Properties" },
-  { id: "matches", label: "Tenant Matches" },
-  { id: "viewings", label: "Viewing Requests" },
-  { id: "rent-payments", label: "Rent Payments" },
-  { id: "reviews", label: "Reviews" },
+  { id: "properties", label: "Properties" },
+  { id: "tenants", label: "Tenants" },
   { id: "analytics", label: "Analytics" },
-  { id: "subscription", label: "Subscription" },
+  { id: "finance", label: "Finance" },
   { id: "communications", label: "Messages" },
-  { id: "profile", label: "Profile" },
+  { id: "account", label: "Account" },
 ]
 
 const AMENITIES = [
@@ -115,6 +112,11 @@ export default function PropertyManagerDashboard() {
   // Reviews
   const [allReviews, setAllReviews] = useState<PropertyReview[]>([])
   const [loadingReviews, setLoadingReviews] = useState(false)
+
+  // Sub-navigation within merged tabs
+  const [tenantsSubTab, setTenantsSubTab] = useState<"matches" | "viewings">("matches")
+  const [financeSubTab, setFinanceSubTab] = useState<"rent-payments" | "reviews">("rent-payments")
+  const [accountSubTab, setAccountSubTab] = useState<"subscription" | "profile">("subscription")
 
   // Rent payment tracking
   const [rentPayments, setRentPayments] = useState<any[]>([])
@@ -193,7 +195,20 @@ export default function PropertyManagerDashboard() {
 
   useEffect(() => {
     const tabParam = searchParams?.get("tab")
-    if (tabParam && TABS.some((t) => t.id === tabParam)) setActiveTab(tabParam)
+    if (!tabParam) return
+    // Direct tab ID
+    if (TABS.some((t) => t.id === tabParam)) {
+      setActiveTab(tabParam)
+    } else if (tabParam === "matches" || tabParam === "viewings") {
+      setActiveTab("tenants")
+      setTenantsSubTab(tabParam as any)
+    } else if (tabParam === "rent-payments" || tabParam === "reviews") {
+      setActiveTab("finance")
+      setFinanceSubTab(tabParam as any)
+    } else if (tabParam === "subscription" || tabParam === "profile") {
+      setActiveTab("account")
+      setAccountSubTab(tabParam as any)
+    }
   }, [searchParams])
 
   useEffect(() => {
@@ -983,48 +998,66 @@ export default function PropertyManagerDashboard() {
           </div>
         )}
 
-        {/* Tenant Matches tab */}
-        {activeTab === "matches" && (
-          <div className="bg-white rounded-xl border border-gray-100 p-5">
-            <h2 className="text-sm font-semibold text-gray-900 mb-1">Top Tenant Matches</h2>
-            <p className="text-xs text-gray-500 mb-4">Tenants whose preferences align with your listings.</p>
-            {loadingMatches ? (
-              <div className="flex justify-center h-32 items-center">
-                <div className="w-5 h-5 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
-              </div>
-            ) : tenantMatches.length === 0 ? (
-              <p className="text-sm text-gray-400">No matches found yet.</p>
-            ) : (
-              <div className="space-y-6">
-                {tenantMatches.map((mg: any) => (
-                  <div key={mg.property._id}>
-                    <h3 className="text-sm font-semibold text-gray-700 mb-2">{mg.property.title}</h3>
-                    <div className="space-y-2">
-                      {mg.matches.map((m: any) => (
-                        <div key={m.tenant._id} className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{m.tenant.name}</p>
-                            <p className="text-xs text-gray-500">{m.preferencesSummary}</p>
-                          </div>
-                          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                            m.matchScore >= 75 ? "bg-emerald-100 text-emerald-700" :
-                            m.matchScore >= 50 ? "bg-amber-100 text-amber-700" :
-                            "bg-gray-100 text-gray-600"
-                          }`}>
-                            {m.matchScore}% match
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+        {/* Tenants tab — Matches + Viewings */}
+        {activeTab === "tenants" && (
+          <div className="space-y-4">
+            {/* Sub-nav */}
+            <div className="flex gap-1 bg-white border border-gray-100 rounded-xl p-1 w-fit">
+              {(["matches", "viewings"] as const).map((sub) => (
+                <button
+                  key={sub}
+                  onClick={() => setTenantsSubTab(sub)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    tenantsSubTab === sub ? "bg-gray-900 text-white" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                  }`}
+                >
+                  {sub === "matches" ? "Tenant Matches" : "Viewing Requests"}
+                </button>
+              ))}
+            </div>
+
+            {/* Matches sub-panel */}
+            {tenantsSubTab === "matches" && (
+              <div className="bg-white rounded-xl border border-gray-100 p-5">
+                <h2 className="text-sm font-semibold text-gray-900 mb-1">Top Tenant Matches</h2>
+                <p className="text-xs text-gray-500 mb-4">Tenants whose preferences align with your listings.</p>
+                {loadingMatches ? (
+                  <div className="flex justify-center h-32 items-center">
+                    <div className="w-5 h-5 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
                   </div>
-                ))}
+                ) : tenantMatches.length === 0 ? (
+                  <p className="text-sm text-gray-400">No matches found yet.</p>
+                ) : (
+                  <div className="space-y-6">
+                    {tenantMatches.map((mg: any) => (
+                      <div key={mg.property._id}>
+                        <h3 className="text-sm font-semibold text-gray-700 mb-2">{mg.property.title}</h3>
+                        <div className="space-y-2">
+                          {mg.matches.map((m: any) => (
+                            <div key={m.tenant._id} className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{m.tenant.name}</p>
+                                <p className="text-xs text-gray-500">{m.preferencesSummary}</p>
+                              </div>
+                              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                                m.matchScore >= 75 ? "bg-emerald-100 text-emerald-700" :
+                                m.matchScore >= 50 ? "bg-amber-100 text-amber-700" :
+                                "bg-gray-100 text-gray-600"
+                              }`}>
+                                {m.matchScore}% match
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
 
-        {/* Viewing Requests tab */}
-        {activeTab === "viewings" && (
+            {/* Viewings sub-panel */}
+            {tenantsSubTab === "viewings" && (
           <div className="bg-white rounded-xl border border-gray-100 p-5">
             <h2 className="text-sm font-semibold text-gray-900 mb-1">Viewing Requests</h2>
             <p className="text-xs text-gray-500 mb-4">All viewing requests for your properties.</p>
@@ -1083,6 +1116,8 @@ export default function PropertyManagerDashboard() {
                 ))}
               </div>
             )}
+          </div>
+        )}
           </div>
         )}
 
@@ -1189,9 +1224,26 @@ export default function PropertyManagerDashboard() {
           </div>
         )}
 
-        {/* Rent Payments tab */}
-        {activeTab === "rent-payments" && (
+        {/* Finance tab — Rent Payments + Reviews */}
+        {activeTab === "finance" && (
           <div className="space-y-4">
+            {/* Sub-nav */}
+            <div className="flex gap-1 bg-white border border-gray-100 rounded-xl p-1 w-fit">
+              {(["rent-payments", "reviews"] as const).map((sub) => (
+                <button
+                  key={sub}
+                  onClick={() => setFinanceSubTab(sub)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    financeSubTab === sub ? "bg-gray-900 text-white" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                  }`}
+                >
+                  {sub === "rent-payments" ? "Rent Payments" : "Reviews"}
+                </button>
+              ))}
+            </div>
+
+            {financeSubTab === "rent-payments" && (
+            <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-semibold text-gray-900">Rent Payment Tracker</h2>
@@ -1343,12 +1395,11 @@ export default function PropertyManagerDashboard() {
                 })}
               </div>
             )}
-          </div>
-        )}
+            </div>
+            )}
 
-        {/* Reviews tab */}
-        {activeTab === "reviews" && (
-          <div className="space-y-4">
+            {financeSubTab === "reviews" && (
+            <div className="space-y-4">
             <h2 className="text-sm font-semibold text-gray-900">Tenant Reviews</h2>
             {loadingReviews ? (
               <div className="flex justify-center py-12">
@@ -1410,12 +1461,31 @@ export default function PropertyManagerDashboard() {
                 )}
               </div>
             )}
+            </div>
+            )}
           </div>
         )}
 
-        {/* Subscription tab */}
-        {activeTab === "subscription" && (
-          <div className="space-y-6">
+        {/* Account tab — Subscription + Profile */}
+        {activeTab === "account" && (
+          <div className="space-y-4">
+            {/* Sub-nav */}
+            <div className="flex gap-1 bg-white border border-gray-100 rounded-xl p-1 w-fit">
+              {(["subscription", "profile"] as const).map((sub) => (
+                <button
+                  key={sub}
+                  onClick={() => setAccountSubTab(sub)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    accountSubTab === sub ? "bg-gray-900 text-white" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                  }`}
+                >
+                  {sub === "subscription" ? "Subscription" : "Profile"}
+                </button>
+              ))}
+            </div>
+
+            {accountSubTab === "subscription" && (
+            <div className="space-y-6">
             <div>
               <h2 className="text-sm font-semibold text-gray-900">Subscription Plan</h2>
               <p className="text-xs text-gray-500 mt-0.5">Choose a plan to unlock more listings and features.</p>
@@ -1486,6 +1556,10 @@ export default function PropertyManagerDashboard() {
                 <p className="text-sm text-blue-700">Pro landlords get 3× more tenant matches and their listings appear first in search results. Most landlords on Pro fill vacancies in under 2 weeks.</p>
               </div>
             </div>
+            </div>
+            )}
+
+            {accountSubTab === "profile" && <ProfileManager />}
           </div>
         )}
 
@@ -1493,9 +1567,6 @@ export default function PropertyManagerDashboard() {
         {activeTab === "communications" && (
           <MessageCenter userId={getUserId(user || {}) || ""} userType="landlord" />
         )}
-
-        {/* Profile tab */}
-        {activeTab === "profile" && <ProfileManager />}
       </div>
     </div>
   )

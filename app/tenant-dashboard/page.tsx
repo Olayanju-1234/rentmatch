@@ -98,6 +98,10 @@ export default function TenantDashboard() {
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
+  // Activity log
+  const [activityLog, setActivityLog] = useState<any[]>([]);
+  const [loadingActivity, setLoadingActivity] = useState(false);
+
   // Refund state
   const [refundingId, setRefundingId] = useState<string | null>(null);
 
@@ -148,6 +152,15 @@ export default function TenantDashboard() {
     finally { setLoadingHistory(false); }
   }, []);
 
+  const fetchActivityLog = useCallback(async () => {
+    setLoadingActivity(true);
+    try {
+      const res = await paymentsApi.getActivityLog();
+      if (res.success && res.data) setActivityLog(res.data);
+    } catch { }
+    finally { setLoadingActivity(false); }
+  }, []);
+
   useEffect(() => {
     if (!user || authLoading || user.userType !== "tenant") return;
     const fetchTenantData = async () => {
@@ -183,7 +196,10 @@ export default function TenantDashboard() {
   }, [user]);
 
   useEffect(() => {
-    if (activeTab === "payments") fetchPaymentHistory();
+    if (activeTab === "payments") {
+      fetchPaymentHistory();
+      fetchActivityLog();
+    }
   }, [activeTab]);
 
   const fetchSavedProperties = async (savedIds: string[]) => {
@@ -464,7 +480,11 @@ export default function TenantDashboard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Choose Payment Method</h3>
-            <p className="text-sm text-gray-500 mb-5">Select how you'd like to pay your viewing deposit.</p>
+            <p className="text-sm text-gray-500 mb-1">Select how you'd like to pay your viewing deposit.</p>
+            <p className="text-xs text-blue-600 mb-5 flex items-center gap-1">
+              <CheckCircle className="h-3 w-3 shrink-0" />
+              Refunded automatically after your viewing completes.
+            </p>
             <div className="space-y-3">
               <button
                 onClick={() => handlePayStripe(payMethodViewing)}
@@ -480,8 +500,11 @@ export default function TenantDashboard() {
               </button>
               <button
                 onClick={() => handlePayPaystack(payMethodViewing)}
-                className="w-full flex items-center gap-4 border border-gray-200 rounded-xl p-4 hover:border-green-300 hover:bg-green-50 transition-all text-left group"
+                className="w-full flex items-center gap-4 border border-green-300 bg-green-50 rounded-xl p-4 hover:border-green-400 hover:bg-green-100 transition-all text-left group relative"
               >
+                <span className="absolute -top-2.5 right-3 bg-green-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                  Recommended for Nigeria
+                </span>
                 <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center shrink-0">
                   <Wallet className="h-5 w-5 text-green-600" />
                 </div>
@@ -940,6 +963,31 @@ export default function TenantDashboard() {
                 ))}
               </div>
             )}
+
+            {/* Activity log */}
+            <div className="mt-6">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Activity Log</h3>
+              {loadingActivity ? (
+                <div className="flex justify-center py-8"><LoadingSpinner size="sm" /></div>
+              ) : activityLog.length === 0 ? (
+                <p className="text-sm text-gray-400 bg-white border border-gray-100 rounded-xl p-5 text-center">No activity recorded yet.</p>
+              ) : (
+                <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+                  {activityLog.slice(0, 20).map((entry: any, i: number) => (
+                    <div key={entry._id || i} className={`flex items-start gap-3 px-4 py-3 ${i < activityLog.length - 1 ? "border-b border-gray-50" : ""}`}>
+                      <div className="w-2 h-2 rounded-full bg-blue-400 shrink-0 mt-2" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-800">{entry.action?.replace(/\./g, " · ") ?? "Event"}</p>
+                        {entry.metadata && Object.keys(entry.metadata).length > 0 && (
+                          <p className="text-xs text-gray-400 truncate">{JSON.stringify(entry.metadata)}</p>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400 shrink-0">{new Date(entry.createdAt).toLocaleString("en-NG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

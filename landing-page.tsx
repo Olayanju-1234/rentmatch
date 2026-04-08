@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import {
   Home, Search, CheckCircle, MapPin, ArrowRight, Menu, X,
@@ -42,6 +42,76 @@ export default function LandingPage() {
   const [featuredProperties, setFeaturedProperties] = useState<IProperty[]>([])
   const [heroProperty, setHeroProperty] = useState<IProperty | null>(null)
   const [loading, setLoading] = useState(true)
+
+  // Scroll-reveal: returns a ref — attach to any element to fade+slide it in on scroll
+  const useScrollReveal = () => {
+    const ref = useRef<HTMLDivElement>(null)
+    useEffect(() => {
+      const el = ref.current
+      if (!el) return
+      el.style.opacity = "0"
+      el.style.transform = "translateY(28px)"
+      el.style.transition = "opacity 0.6s ease, transform 0.6s ease"
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            el.style.opacity = "1"
+            el.style.transform = "translateY(0)"
+            observer.disconnect()
+          }
+        },
+        { threshold: 0.12 },
+      )
+      observer.observe(el)
+      return () => observer.disconnect()
+    }, [])
+    return ref
+  }
+
+  // Countup animation for stat numbers
+  const useCountup = (target: string, duration = 1200) => {
+    const [display, setDisplay] = useState("-")
+    const ref = useRef<HTMLSpanElement>(null)
+    useEffect(() => {
+      if (target === "-") return
+      const num = parseInt(target.replace(/\D/g, ""), 10)
+      if (isNaN(num)) { setDisplay(target); return }
+      const el = ref.current
+      if (!el) return
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (!entry.isIntersecting) return
+          observer.disconnect()
+          const suffix = target.replace(/[\d,]/g, "")
+          const start = Date.now()
+          const tick = () => {
+            const progress = Math.min((Date.now() - start) / duration, 1)
+            const eased = 1 - Math.pow(1 - progress, 3)
+            setDisplay(Math.round(eased * num).toLocaleString() + suffix)
+            if (progress < 1) requestAnimationFrame(tick)
+          }
+          requestAnimationFrame(tick)
+        },
+        { threshold: 0.5 },
+      )
+      observer.observe(el)
+      return () => observer.disconnect()
+    }, [target, duration])
+    return { ref, display }
+  }
+
+  const heroRef = useScrollReveal()
+  const featuresRef = useScrollReveal()
+  const paymentBannerRef = useScrollReveal()
+  const landlordRef = useScrollReveal()
+  const howItWorksRef = useScrollReveal()
+  const testimonialsRef = useScrollReveal()
+  const ctaRef = useScrollReveal()
+
+  const propCountup = useCountup(stats.properties)
+  const availCountup = useCountup(stats.available)
+  const accCountup = useCountup(stats.accuracy)
+  const viewCountup = useCountup(stats.views)
 
   useEffect(() => {
     async function fetchData() {
@@ -217,17 +287,22 @@ export default function LandingPage() {
         <div className="border-t border-white/10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-              {[
-                { value: stats.properties, label: "Properties Listed" },
-                { value: stats.available, label: "Available Now" },
-                { value: stats.accuracy, label: "Match Accuracy" },
-                { value: stats.views, label: "Total Views" },
-              ].map((s, i) => (
-                <div key={i} className="text-center">
-                  <div className="text-3xl font-black text-white">{s.value}</div>
-                  <div className="text-sm text-gray-500 mt-1">{s.label}</div>
-                </div>
-              ))}
+              <div className="text-center">
+                <span ref={propCountup.ref} className="text-3xl font-black text-white">{propCountup.display}</span>
+                <div className="text-sm text-gray-500 mt-1">Properties Listed</div>
+              </div>
+              <div className="text-center">
+                <span ref={availCountup.ref} className="text-3xl font-black text-white">{availCountup.display}</span>
+                <div className="text-sm text-gray-500 mt-1">Available Now</div>
+              </div>
+              <div className="text-center">
+                <span ref={accCountup.ref} className="text-3xl font-black text-white">{accCountup.display}</span>
+                <div className="text-sm text-gray-500 mt-1">Match Accuracy</div>
+              </div>
+              <div className="text-center">
+                <span ref={viewCountup.ref} className="text-3xl font-black text-white">{viewCountup.display}</span>
+                <div className="text-sm text-gray-500 mt-1">Total Views</div>
+              </div>
             </div>
           </div>
         </div>
@@ -235,7 +310,7 @@ export default function LandingPage() {
 
       {/* Features */}
       <section id="features" className="py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div ref={featuresRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <span className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-3 block">What makes us different</span>
             <h2 className="text-3xl lg:text-4xl font-black text-gray-900 mb-4">Built for how renting actually works</h2>
@@ -284,7 +359,7 @@ export default function LandingPage() {
 
       {/* Payment methods banner */}
       <section className="py-12 bg-gray-50 border-y border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div ref={paymentBannerRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-1">Pay how you want</h3>
@@ -317,7 +392,7 @@ export default function LandingPage() {
 
       {/* How it works */}
       <section id="how-it-works" className="py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div ref={howItWorksRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <span className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-3 block">Simple process</span>
             <h2 className="text-3xl lg:text-4xl font-black text-gray-900 mb-4">From preferences to move-in in 3 steps</h2>
@@ -364,7 +439,7 @@ export default function LandingPage() {
 
       {/* For landlords */}
       <section className="py-24 bg-gray-950 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div ref={landlordRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
               <span className="text-xs font-semibold uppercase tracking-widest text-blue-400 mb-4 block">For landlords</span>
@@ -489,7 +564,7 @@ export default function LandingPage() {
 
       {/* Reviews */}
       <section id="reviews" className="py-24 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div ref={testimonialsRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
             <span className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-3 block">Real stories</span>
             <h2 className="text-3xl lg:text-4xl font-black text-gray-900 mb-4">Trusted by tenants and landlords</h2>
@@ -525,7 +600,7 @@ export default function LandingPage() {
       {/* Final CTA */}
       <section className="py-24 bg-gray-950 relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-900/20 via-transparent to-transparent" />
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative">
+        <div ref={ctaRef} className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative">
           <h2 className="text-4xl lg:text-5xl font-black text-white mb-6 leading-tight">
             Your next home is<br />
             <span className="text-blue-400">already waiting for you.</span>
