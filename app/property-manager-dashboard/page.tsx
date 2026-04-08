@@ -118,6 +118,9 @@ export default function PropertyManagerDashboard() {
   const [financeSubTab, setFinanceSubTab] = useState<"rent-payments" | "reviews">("rent-payments")
   const [accountSubTab, setAccountSubTab] = useState<"subscription" | "profile">("subscription")
   const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null)
+  const [connectStatus, setConnectStatus] = useState<{ status: "none" | "pending" | "connected"; payoutsEnabled?: boolean; requirements?: string[] } | null>(null)
+  const [loadingConnect, setLoadingConnect] = useState(false)
+  const [startingOnboarding, setStartingOnboarding] = useState(false)
 
   // Rent payment tracking
   const [rentPayments, setRentPayments] = useState<any[]>([])
@@ -192,6 +195,31 @@ export default function PropertyManagerDashboard() {
 
   function handleDeleteRentPayment(id: string) {
     saveRentPayments(rentPayments.filter((r) => r._id !== id))
+  }
+
+  async function loadConnectStatus() {
+    setLoadingConnect(true)
+    try {
+      const res = await paymentsApi.getConnectStatus()
+      if (res.success && res.data) setConnectStatus(res.data)
+    } catch { }
+    finally { setLoadingConnect(false) }
+  }
+
+  async function handleStartOnboarding() {
+    setStartingOnboarding(true)
+    try {
+      const res = await paymentsApi.startConnectOnboarding()
+      if (res.success && res.data?.onboarding_url) {
+        window.location.href = res.data.onboarding_url
+      } else {
+        showToast("error", res.message || "Could not start payout setup.")
+      }
+    } catch {
+      showToast("error", "Failed to start payout setup.")
+    } finally {
+      setStartingOnboarding(false)
+    }
   }
 
   async function handleUpgrade(plan: "pro" | "enterprise") {
@@ -272,6 +300,12 @@ export default function PropertyManagerDashboard() {
     const id = getUserId(user)
     if (id) fetchProperties(id)
   }, [user, isLoading])
+
+  useEffect(() => {
+    if (activeTab === "account" && user?.userType === "landlord") {
+      loadConnectStatus()
+    }
+  }, [activeTab])
 
   async function fetchProperties(landlordIdParam?: string) {
     const landlordId = landlordIdParam || getUserId(user || {})
@@ -1503,6 +1537,61 @@ export default function PropertyManagerDashboard() {
 
             {accountSubTab === "subscription" && (
             <div className="space-y-6">
+
+            {/* Stripe Connect — payout setup */}
+            <div className="bg-white rounded-xl border border-gray-100 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-indigo-600" />
+                    Payout Setup
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Connect your bank account to receive deposits after completed viewings.</p>
+                </div>
+                {connectStatus?.status === "connected" && (
+                  <span className="text-xs bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-medium">Connected</span>
+                )}
+                {connectStatus?.status === "pending" && (
+                  <span className="text-xs bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-full font-medium">Pending</span>
+                )}
+              </div>
+
+              {loadingConnect ? (
+                <div className="flex items-center gap-2 text-xs text-gray-400"><div className="w-3 h-3 border border-gray-300 border-t-gray-600 rounded-full animate-spin" /> Checking status...</div>
+              ) : connectStatus?.status === "connected" ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-green-600">Your bank account is connected and payouts are enabled.</p>
+                  <button onClick={handleStartOnboarding} className="text-xs text-gray-500 underline hover:text-gray-700">Update bank details</button>
+                </div>
+              ) : connectStatus?.status === "pending" ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-yellow-700">Onboarding incomplete. Please finish verifying your identity and bank details.</p>
+                  {connectStatus.requirements && connectStatus.requirements.length > 0 && (
+                    <p className="text-xs text-gray-400">Still needed: {connectStatus.requirements.slice(0, 2).join(", ")}</p>
+                  )}
+                  <button
+                    onClick={handleStartOnboarding}
+                    disabled={startingOnboarding}
+                    className="text-xs bg-yellow-600 hover:bg-yellow-700 disabled:opacity-60 text-white px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    {startingOnboarding ? "Loading..." : "Continue Setup"}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleStartOnboarding}
+                    disabled={startingOnboarding}
+                    className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors"
+                  >
+                    <CreditCard className="h-3.5 w-3.5" />
+                    {startingOnboarding ? "Setting up..." : "Connect Bank Account"}
+                  </button>
+                  <p className="text-xs text-gray-400">Powered by Stripe Connect — secure, verified payouts.</p>
+                </div>
+              )}
+            </div>
+
             <div>
               <h2 className="text-sm font-semibold text-gray-900">Subscription Plan</h2>
               <p className="text-xs text-gray-500 mt-0.5">Choose a plan to unlock more listings and features.</p>

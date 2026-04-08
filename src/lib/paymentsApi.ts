@@ -148,4 +148,20 @@ export const paymentsApi = {
     )
     return response.data
   },
+
+  startConnectOnboarding: async (): Promise<ApiResponse<{ onboarding_url: string }>> => {
+    const response = await apiClient.post<ApiResponse<{ onboarding_url: string }>>(`/payments/connect/onboard`)
+    return response.data
+  },
+
+  getConnectStatus: async (): Promise<ApiResponse<{
+    status: 'none' | 'pending' | 'connected';
+    accountId: string | null;
+    payoutsEnabled?: boolean;
+    chargesEnabled?: boolean;
+    requirements?: string[];
+  }>> => {
+    const response = await apiClient.get<ApiResponse<any>>(`/payments/connect/status`)
+    return response.data
+  },
 }
