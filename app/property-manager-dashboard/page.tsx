@@ -117,6 +117,7 @@ export default function PropertyManagerDashboard() {
   const [tenantsSubTab, setTenantsSubTab] = useState<"matches" | "viewings">("matches")
   const [financeSubTab, setFinanceSubTab] = useState<"rent-payments" | "reviews">("rent-payments")
   const [accountSubTab, setAccountSubTab] = useState<"subscription" | "profile">("subscription")
+  const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null)
 
   // Rent payment tracking
   const [rentPayments, setRentPayments] = useState<any[]>([])
@@ -191,6 +192,22 @@ export default function PropertyManagerDashboard() {
 
   function handleDeleteRentPayment(id: string) {
     saveRentPayments(rentPayments.filter((r) => r._id !== id))
+  }
+
+  async function handleUpgrade(plan: "pro" | "enterprise") {
+    setUpgradingPlan(plan)
+    try {
+      const res = await paymentsApi.createSubscriptionCheckout(plan)
+      if (res.success && res.data?.checkout_url) {
+        window.location.href = res.data.checkout_url
+      } else {
+        showToast("error", res.message || "Could not start checkout. Ensure STRIPE_PRO_PRICE_ID / STRIPE_ENTERPRISE_PRICE_ID are set.")
+      }
+    } catch {
+      showToast("error", "Failed to start subscription checkout.")
+    } finally {
+      setUpgradingPlan(null)
+    }
   }
 
   useEffect(() => {
@@ -1495,30 +1512,27 @@ export default function PropertyManagerDashboard() {
               {[
                 {
                   name: "Starter",
+                  planKey: null as null | "pro" | "enterprise",
                   price: "Free",
                   color: "border-gray-200",
-                  badge: null,
+                  badge: null as string | null,
                   features: ["Up to 3 listings", "Basic matching", "Email support", "Tenant messaging"],
-                  cta: "Current Plan",
-                  ctaCls: "bg-gray-100 text-gray-500 cursor-default",
                 },
                 {
                   name: "Pro",
+                  planKey: "pro" as "pro" | "enterprise",
                   price: "₦15,000/mo",
                   color: "border-blue-500",
                   badge: "Most Popular",
                   features: ["Up to 20 listings", "Priority matching", "Featured listings", "Analytics dashboard", "Priority support"],
-                  cta: "Upgrade to Pro",
-                  ctaCls: "bg-blue-600 hover:bg-blue-700 text-white transition-colors",
                 },
                 {
                   name: "Enterprise",
+                  planKey: "enterprise" as "pro" | "enterprise",
                   price: "₦45,000/mo",
                   color: "border-purple-500",
                   badge: "Best Value",
                   features: ["Unlimited listings", "AI-powered matching", "Custom subdomain", "Dedicated account manager", "API access", "White-label options"],
-                  cta: "Contact Sales",
-                  ctaCls: "bg-purple-600 hover:bg-purple-700 text-white transition-colors",
                 },
               ].map((plan) => (
                 <div key={plan.name} className={`bg-white rounded-xl border-2 ${plan.color} p-6 relative`}>
@@ -1542,9 +1556,25 @@ export default function PropertyManagerDashboard() {
                       </li>
                     ))}
                   </ul>
-                  <button className={`w-full py-2.5 rounded-lg text-sm font-medium ${plan.ctaCls}`}>
-                    {plan.cta}
-                  </button>
+                  {plan.planKey ? (
+                    <button
+                      onClick={() => handleUpgrade(plan.planKey!)}
+                      disabled={upgradingPlan === plan.planKey}
+                      className={`w-full py-2.5 rounded-lg text-sm font-medium disabled:opacity-60 ${
+                        plan.name === "Enterprise"
+                          ? "bg-purple-600 hover:bg-purple-700 text-white transition-colors"
+                          : "bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                      }`}
+                    >
+                      {upgradingPlan === plan.planKey
+                        ? "Redirecting to Stripe..."
+                        : plan.name === "Enterprise" ? "Contact Sales" : "Upgrade to Pro"}
+                    </button>
+                  ) : (
+                    <button disabled className="w-full py-2.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-500 cursor-default">
+                      Current Plan
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

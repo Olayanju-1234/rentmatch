@@ -123,4 +123,20 @@ export const paymentsApi = {
     const response = await apiClient.get<ApiResponse<any[]>>(`/payments/activity`)
     return response.data
   },
+
+  createSubscriptionCheckout: async (plan: 'pro' | 'enterprise'): Promise<ApiResponse<{ checkout_url: string }>> => {
+    const response = await apiClient.post<ApiResponse<{ checkout_url: string }>>(
+      `/payments/subscription/checkout`,
+      { plan },
+    )
+    return response.data
+  },
+
+  createBillingPortalSession: async (stripeCustomerId: string): Promise<ApiResponse<{ portal_url: string }>> => {
+    const response = await apiClient.post<ApiResponse<{ portal_url: string }>>(
+      `/payments/billing-portal`,
+      { stripeCustomerId },
+    )
+    return response.data
+  },
 }
