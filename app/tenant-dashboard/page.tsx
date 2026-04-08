@@ -104,6 +104,9 @@ export default function TenantDashboard() {
   const [activityLog, setActivityLog] = useState<any[]>([]);
   const [loadingActivity, setLoadingActivity] = useState(false);
 
+  // Property comparison (up to 3 saved properties)
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+
   // Refund state
   const [refundingId, setRefundingId] = useState<string | null>(null);
 
@@ -887,7 +890,23 @@ export default function TenantDashboard() {
         {/* Saved */}
         {activeTab === "saved" && (
           <div className="space-y-4">
-            <h2 className="text-base font-semibold text-gray-900">Saved Properties</h2>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Saved Properties</h2>
+                {compareIds.length > 0 && (
+                  <p className="text-xs text-blue-600 mt-0.5">{compareIds.length} selected for comparison</p>
+                )}
+              </div>
+              {compareIds.length >= 2 && (
+                <button
+                  onClick={() => setCompareIds([])}
+                  className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
             {!tenant?.savedProperties?.length ? (
               <div className="bg-white border border-gray-100 rounded-xl p-12 text-center">
                 <Heart className="h-10 w-10 text-gray-300 mx-auto mb-3" />
@@ -895,33 +914,112 @@ export default function TenantDashboard() {
                 <p className="text-sm text-gray-500">Save properties from your matches to find them here.</p>
               </div>
             ) : (
-              tenant.savedProperties.map((propertyId) => {
-                const property = properties.find((p) => p._id === propertyId);
-                if (!property) return null;
-                return (
-                  <div key={propertyId} className="bg-white border border-gray-100 rounded-xl overflow-hidden flex">
-                    <img src={property.images?.[0] || "/placeholder.svg"} alt={property.title} className="w-32 h-24 object-cover shrink-0" />
-                    <div className="flex-1 p-4 flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium text-gray-900 text-sm">{property.title}</h3>
-                        <p className="text-xs text-gray-400 mt-0.5">{property.location?.city}, {property.location?.state}</p>
-                        <p className="text-sm font-semibold text-gray-900 mt-1">₦{property.rent?.toLocaleString()}/yr</p>
+              <>
+                <p className="text-xs text-gray-400">Select up to 3 properties to compare side-by-side.</p>
+                <div className="space-y-3">
+                  {tenant.savedProperties.map((propertyId) => {
+                    const property = properties.find((p) => p._id === propertyId);
+                    if (!property) return null;
+                    const isSelected = compareIds.includes(propertyId);
+                    const canSelect = isSelected || compareIds.length < 3;
+                    const rating = propertyRatings[propertyId];
+                    return (
+                      <div
+                        key={propertyId}
+                        className={`bg-white border rounded-xl overflow-hidden flex transition-all ${isSelected ? "border-blue-400 shadow-sm" : "border-gray-100"}`}
+                      >
+                        <label className="flex items-center px-4 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={!canSelect}
+                            onChange={() => setCompareIds((prev) =>
+                              isSelected ? prev.filter((id) => id !== propertyId) : [...prev, propertyId]
+                            )}
+                            className="w-4 h-4 rounded border-gray-300 accent-blue-600"
+                          />
+                        </label>
+                        <img src={property.images?.[0] || "/placeholder.svg"} alt={property.title} className="w-28 h-24 object-cover shrink-0" />
+                        <div className="flex-1 p-4 flex items-center justify-between">
+                          <div>
+                            <h3 className="font-medium text-gray-900 text-sm">{property.title}</h3>
+                            <p className="text-xs text-gray-400 mt-0.5">{property.location?.city}, {property.location?.state}</p>
+                            <p className="text-sm font-semibold text-gray-900 mt-1">₦{property.rent?.toLocaleString()}/yr</p>
+                            {rating && (
+                              <div className="flex items-center gap-1 mt-1">
+                                {[1,2,3,4,5].map((s) => <Star key={s} className={`h-3 w-3 ${s <= Math.round(rating.avg) ? "fill-yellow-400 text-yellow-400" : "text-gray-200"}`} />)}
+                                <span className="text-xs text-gray-400">{rating.avg}</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${property.status === "available" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                              {property.status}
+                            </span>
+                            <button
+                              onClick={() => { setViewingPropertyId(property._id); setShowViewingModal(true); }}
+                              className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors"
+                            >
+                              Book
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${property.status === "available" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                          {property.status}
-                        </span>
-                        <button
-                          onClick={() => { setViewingPropertyId(property._id); setShowViewingModal(true); }}
-                          className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors"
-                        >
-                          Book
-                        </button>
-                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Comparison table */}
+                {compareIds.length >= 2 && (
+                  <div className="bg-white border border-blue-100 rounded-xl overflow-hidden mt-2">
+                    <div className="bg-blue-50 px-5 py-3 border-b border-blue-100">
+                      <p className="text-sm font-semibold text-blue-900">Side-by-Side Comparison</p>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-100">
+                            <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 w-28">Attribute</th>
+                            {compareIds.map((id) => {
+                              const p = properties.find((x) => x._id === id);
+                              return (
+                                <th key={id} className="px-5 py-3 text-left text-xs font-semibold text-gray-900 truncate max-w-xs">
+                                  {p?.title || "Property"}
+                                </th>
+                              );
+                            })}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[
+                            { label: "Rent/yr", getValue: (p: any) => p?.rent ? `₦${p.rent.toLocaleString()}` : "-" },
+                            { label: "Location", getValue: (p: any) => p?.location ? `${p.location.city}, ${p.location.state}` : "-" },
+                            { label: "Bedrooms", getValue: (p: any) => p?.bedrooms ?? "-" },
+                            { label: "Bathrooms", getValue: (p: any) => p?.bathrooms ?? "-" },
+                            { label: "Size", getValue: (p: any) => p?.size ? `${p.size} sqm` : "-" },
+                            { label: "Status", getValue: (p: any) => p?.status ?? "-" },
+                            { label: "Rating", getValue: (p: any) => propertyRatings[p?._id]?.avg ? `${propertyRatings[p._id].avg} ★ (${propertyRatings[p._id].total})` : "No reviews" },
+                            { label: "Match %", getValue: (p: any) => {
+                              const m = matches.find((x) => x.propertyId === p?._id);
+                              return m ? `${Math.round(m.matchScore)}%` : "-";
+                            }},
+                          ].map((row) => (
+                            <tr key={row.label} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
+                              <td className="px-5 py-3 text-xs text-gray-500 font-medium">{row.label}</td>
+                              {compareIds.map((id) => {
+                                const p = properties.find((x) => x._id === id);
+                                return (
+                                  <td key={id} className="px-5 py-3 text-xs text-gray-900">{row.getValue(p)}</td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
-                );
-              })
+                )}
+              </>
             )}
           </div>
         )}
