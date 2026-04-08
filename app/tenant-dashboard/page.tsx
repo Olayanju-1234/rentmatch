@@ -13,6 +13,7 @@ import { optimizationApi } from "@/src/lib/optimizationApi";
 import { propertiesApi } from "@/src/lib/propertiesApi";
 import { communicationApi } from "@/src/lib/communicationApi";
 import { paymentsApi } from "@/src/lib/paymentsApi";
+import { waitlistApi } from "@/src/lib/waitlistApi";
 import type { PaymentHistoryItem, PropertyReview } from "@/src/lib/paymentsApi";
 import { PreferencesModal } from "@/components/tenant/PreferencesModal";
 import { MessageCenter } from "@/components/communication/MessageCenter";
@@ -106,6 +107,10 @@ export default function TenantDashboard() {
 
   // Property comparison (up to 3 saved properties)
   const [compareIds, setCompareIds] = useState<string[]>([]);
+
+  // Waitlist — tracks which properties the tenant has joined
+  const [waitlistedIds, setWaitlistedIds] = useState<Set<string>>(new Set());
+  const [joiningWaitlist, setJoiningWaitlist] = useState<string | null>(null);
 
   // Refund state
   const [refundingId, setRefundingId] = useState<string | null>(null);
@@ -285,6 +290,21 @@ export default function TenantDashboard() {
       toast({ title: "Saved", description: "Property added to your saved list." });
     } catch {
       toast({ title: "Error", description: "Failed to save property.", variant: "destructive" });
+    }
+  };
+
+  const handleJoinWaitlist = async (propertyId: string) => {
+    setJoiningWaitlist(propertyId);
+    try {
+      const res = await waitlistApi.join(propertyId);
+      if (res.success) {
+        setWaitlistedIds((prev) => new Set([...prev, propertyId]));
+        toast({ title: "Added to Waitlist", description: res.message || "You'll be notified when this property becomes available." });
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to join waitlist.", variant: "destructive" });
+    } finally {
+      setJoiningWaitlist(null);
     }
   };
 
@@ -760,19 +780,30 @@ export default function TenantDashboard() {
                         </div>
                       )}
 
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         <button
                           onClick={() => handleSaveProperty(match.propertyId)}
                           className="flex items-center gap-1.5 text-xs border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 text-gray-600"
                         >
                           <Heart className="h-3.5 w-3.5" /> Save
                         </button>
-                        <button
-                          onClick={() => { if (property) { setViewingPropertyId(property._id); setShowViewingModal(true); } }}
-                          className="flex items-center gap-1.5 text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700"
-                        >
-                          <Calendar className="h-3.5 w-3.5" /> Request Viewing
-                        </button>
+                        {property?.status === "available" ? (
+                          <button
+                            onClick={() => { if (property) { setViewingPropertyId(property._id); setShowViewingModal(true); } }}
+                            className="flex items-center gap-1.5 text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700"
+                          >
+                            <Calendar className="h-3.5 w-3.5" /> Request Viewing
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleJoinWaitlist(match.propertyId)}
+                            disabled={waitlistedIds.has(match.propertyId) || joiningWaitlist === match.propertyId}
+                            className="flex items-center gap-1.5 text-xs border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-60 px-3 py-1.5 rounded-lg transition-colors"
+                          >
+                            <Bell className="h-3.5 w-3.5" />
+                            {waitlistedIds.has(match.propertyId) ? "On Waitlist" : joiningWaitlist === match.propertyId ? "Joining..." : "Join Waitlist"}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
