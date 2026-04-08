@@ -7,6 +7,7 @@ import { MessageCenter } from "@/components/communication/MessageCenter"
 import { ProfileManager } from "@/components/profile/ProfileManager"
 import { propertiesApi } from "@/src/lib/propertiesApi"
 import { useAuth } from "@/src/context/AuthContext"
+import { useSocket } from "@/src/hooks/useSocket"
 import { convertBackendToFrontend } from "@/src/utils/typeConversion"
 import type { IProperty, IViewing } from "@/src/types"
 import {
@@ -156,6 +157,17 @@ export default function PropertyManagerDashboard() {
     setToast({ type, message })
     setTimeout(() => setToast(null), 4000)
   }
+
+  // Real-time notifications via Socket.io
+  useSocket({
+    userId: user ? ((user as any)._id ?? (user as any).id) : undefined,
+    onViewingStatusUpdated: ({ status, propertyTitle }) => {
+      showToast("success", `Viewing for "${propertyTitle || 'a property'}" marked as ${status}.`);
+    },
+    onNewMessage: ({ subject }) => {
+      showToast("success", `New message: ${subject || 'You have a new message.'}`);
+    },
+  });
 
   // Load reviews whenever properties are loaded
   useEffect(() => {

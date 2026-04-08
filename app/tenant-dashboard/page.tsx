@@ -24,6 +24,7 @@ import { convertBackendToFrontend } from "@/src/utils/typeConversion";
 import type { ITenant, PropertyMatch, IProperty } from "@/src/types";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import { useSocket } from "@/src/hooks/useSocket";
 
 type Tab = "matches" | "viewings" | "saved" | "payments" | "preferences" | "messages" | "analytics" | "profile";
 
@@ -80,6 +81,7 @@ export default function TenantDashboard() {
   const { user, isLoading: authLoading, logout } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+
 
   const [tenant, setTenant] = useState<ITenant | null>(null);
   const [matches, setMatches] = useState<PropertyMatch[]>([]);
@@ -152,6 +154,24 @@ export default function TenantDashboard() {
       setLoadingViewings(false);
     }
   }, [user]);
+
+  // Real-time notifications via Socket.io
+  useSocket({
+    userId: user?._id,
+    onViewingStatusUpdated: ({ status, propertyTitle }) => {
+      toast({
+        title: "Viewing Update",
+        description: `Your viewing for "${propertyTitle || 'a property'}" is now ${status}.`,
+      });
+      fetchViewings();
+    },
+    onNewMessage: ({ subject }) => {
+      toast({
+        title: "New Message",
+        description: subject || "You have a new message.",
+      });
+    },
+  });
 
   const fetchPaymentHistory = useCallback(async () => {
     setLoadingHistory(true);
