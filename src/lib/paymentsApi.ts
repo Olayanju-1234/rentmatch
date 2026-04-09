@@ -141,10 +141,9 @@ export const paymentsApi = {
     return response.data
   },
 
-  createBillingPortalSession: async (stripeCustomerId: string): Promise<ApiResponse<{ portal_url: string }>> => {
+  createBillingPortalSession: async (): Promise<ApiResponse<{ portal_url: string }>> => {
     const response = await apiClient.post<ApiResponse<{ portal_url: string }>>(
       `/payments/billing-portal`,
-      { stripeCustomerId },
     )
     return response.data
   },

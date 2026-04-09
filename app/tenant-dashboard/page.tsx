@@ -339,14 +339,20 @@ export default function TenantDashboard() {
 
   const handleSaveProperty = async (propertyId: string) => {
     if (!user) return;
+    const isSaved = tenant?.savedProperties?.includes(propertyId);
     try {
       const tenantId = user.tenantId || user._id;
-      await tenantsApi.addSavedProperty(tenantId, propertyId);
+      if (isSaved) {
+        await tenantsApi.removeSavedProperty(tenantId, propertyId);
+        toast({ title: "Removed", description: "Property removed from your saved list." });
+      } else {
+        await tenantsApi.addSavedProperty(tenantId, propertyId);
+        toast({ title: "Saved", description: "Property added to your saved list." });
+      }
       const res = await tenantsApi.getProfile(tenantId);
       if (res.success && res.data) setTenant(convertBackendToFrontend.tenant(res.data));
-      toast({ title: "Saved", description: "Property added to your saved list." });
     } catch {
-      toast({ title: "Error", description: "Failed to save property.", variant: "destructive" });
+      toast({ title: "Error", description: isSaved ? "Failed to remove property." : "Failed to save property.", variant: "destructive" });
     }
   };
 
@@ -842,12 +848,18 @@ export default function TenantDashboard() {
                       )}
 
                       <div className="flex gap-2 flex-wrap">
-                        <button
-                          onClick={() => handleSaveProperty(match.propertyId)}
-                          className="flex items-center gap-1.5 text-xs border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 text-gray-600"
-                        >
-                          <Heart className="h-3.5 w-3.5" /> Save
-                        </button>
+                        {(() => {
+                          const isSaved = tenant?.savedProperties?.includes(match.propertyId);
+                          return (
+                            <button
+                              onClick={() => handleSaveProperty(match.propertyId)}
+                              className={`flex items-center gap-1.5 text-xs border px-3 py-1.5 rounded-lg transition-colors ${isSaved ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100" : "border-gray-200 hover:bg-gray-50 text-gray-600"}`}
+                            >
+                              <Heart className={`h-3.5 w-3.5 ${isSaved ? "fill-red-500 text-red-500" : ""}`} />
+                              {isSaved ? "Saved" : "Save"}
+                            </button>
+                          );
+                        })()}
                         {property?.status === "available" ? (
                           <button
                             onClick={() => { if (property) { setViewingPropertyId(property._id); setShowViewingModal(true); } }}
@@ -1053,6 +1065,13 @@ export default function TenantDashboard() {
                               className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors"
                             >
                               Book
+                            </button>
+                            <button
+                              onClick={() => handleSaveProperty(propertyId)}
+                              title="Remove from saved"
+                              className="text-xs border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 px-2 py-1.5 rounded-lg transition-colors"
+                            >
+                              <Heart className="h-3.5 w-3.5 fill-red-500" />
                             </button>
                           </div>
                         </div>
