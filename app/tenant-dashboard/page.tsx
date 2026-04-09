@@ -54,6 +54,43 @@ function loadPaystack(): Promise<void> {
   });
 }
 
+// Currency formatter — respects actual currency from payment data
+function formatAmount(amount: number, currency: string): string {
+  const curr = (currency || 'GBP').toUpperCase();
+  if (curr === 'GBP') return `£${amount.toLocaleString()}`;
+  if (curr === 'NGN' || curr === 'NGN') return `₦${amount.toLocaleString()}`;
+  if (curr === 'USD') return `$${amount.toLocaleString()}`;
+  return `${curr} ${amount.toLocaleString()}`;
+}
+
+// Format audit log metadata into human-readable text
+function formatActivityMeta(action: string, meta: Record<string, any>): string {
+  if (!meta) return '';
+  const { provider, amount, currency, sessionId, paymentIntentId, reference, rating, viewingId } = meta;
+  if (action.includes('deposit')) {
+    const parts: string[] = [];
+    if (provider) parts.push(provider.charAt(0).toUpperCase() + provider.slice(1));
+    if (amount && currency) parts.push(formatAmount(amount, currency));
+    if (viewingId) parts.push(`viewing …${String(viewingId).slice(-6)}`);
+    return parts.join(' · ');
+  }
+  if (action.includes('review')) {
+    return rating ? `${rating} star${rating !== 1 ? 's' : ''}` : '';
+  }
+  if (action.includes('refund')) {
+    const parts: string[] = [];
+    if (provider) parts.push(provider);
+    if (reference) parts.push(`ref …${String(reference).slice(-8)}`);
+    return parts.join(' · ');
+  }
+  // Fallback: show non-id fields
+  const safe = Object.entries(meta)
+    .filter(([k, v]) => !['sessionId', 'paymentIntentId', 'transactionId'].includes(k) && typeof v !== 'object')
+    .map(([k, v]) => `${k}: ${v}`)
+    .join(' · ');
+  return safe;
+}
+
 // Star rating component
 function StarRating({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const [hovered, setHovered] = useState(0);
@@ -1083,8 +1120,8 @@ export default function TenantDashboard() {
             {/* Summary cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {[
-                { label: "Total Deposits Paid", value: `₦${totalPaid.toLocaleString()}`, color: "text-blue-600", icon: CreditCard },
-                { label: "Total Refunded", value: `₦${totalRefunded.toLocaleString()}`, color: "text-green-600", icon: RotateCcw },
+                { label: "Total Deposits Paid", value: formatAmount(totalPaid, paymentHistory[0]?.currency || 'GBP'), color: "text-blue-600", icon: CreditCard },
+                { label: "Total Refunded", value: formatAmount(totalRefunded, paymentHistory[0]?.currency || 'GBP'), color: "text-green-600", icon: RotateCcw },
                 { label: "Transactions", value: paymentHistory.length, color: "text-purple-600", icon: Receipt },
               ].map((s, i) => (
                 <div key={i} className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3">
@@ -1127,7 +1164,7 @@ export default function TenantDashboard() {
                     </div>
                     <div className="text-right shrink-0">
                       <p className={`text-sm font-semibold ${item.type === "refund" ? "text-green-600" : "text-gray-900"}`}>
-                        {item.type === "refund" ? "+" : "-"}₦{item.amount.toLocaleString()}
+                        {item.type === "refund" ? "+" : "-"}{formatAmount(item.amount, item.currency)}
                       </p>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${DEPOSIT_STATUS_STYLES[item.status]?.cls || "bg-gray-100 text-gray-500"}`}>
                         {DEPOSIT_STATUS_STYLES[item.status]?.label || item.status}
@@ -1152,9 +1189,10 @@ export default function TenantDashboard() {
                       <div className="w-2 h-2 rounded-full bg-blue-400 shrink-0 mt-2" />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-gray-800">{entry.action?.replace(/\./g, " · ") ?? "Event"}</p>
-                        {entry.metadata && Object.keys(entry.metadata).length > 0 && (
-                          <p className="text-xs text-gray-400 truncate">{JSON.stringify(entry.metadata)}</p>
-                        )}
+                        {entry.metadata && Object.keys(entry.metadata).length > 0 && (() => {
+                          const summary = formatActivityMeta(entry.action ?? '', entry.metadata);
+                          return summary ? <p className="text-xs text-gray-400">{summary}</p> : null;
+                        })()}
                       </div>
                       <p className="text-xs text-gray-400 shrink-0">{new Date(entry.createdAt).toLocaleString("en-NG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
                     </div>
@@ -1213,7 +1251,21 @@ export default function TenantDashboard() {
         {/* Messages */}
         {activeTab === "messages" && (
           <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-            {user && <MessageCenter userId={user._id} userType="tenant" />}
+            {user && (
+              <MessageCenter
+                userId={user._id}
+                userType="tenant"
+                contacts={viewings
+                  .filter((v: any) => v.landlordId && (typeof v.landlordId === 'object' ? v.landlordId.name : false))
+                  .map((v: any) => ({
+                    id: typeof v.landlordId === 'object' ? (v.landlordId._id ?? v.landlordId.id ?? String(v.landlordId)) : String(v.landlordId),
+                    name: typeof v.landlordId === 'object' ? v.landlordId.name : 'Landlord',
+                    email: typeof v.landlordId === 'object' ? v.landlordId.email : undefined,
+                  }))
+                  // deduplicate by id
+                  .filter((c, idx, arr) => arr.findIndex((x) => x.id === c.id) === idx)}
+              />
+            )}
           </div>
         )}
 

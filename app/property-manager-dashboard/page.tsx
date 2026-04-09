@@ -1738,7 +1738,18 @@ export default function PropertyManagerDashboard() {
 
         {/* Messages tab */}
         {activeTab === "communications" && (
-          <MessageCenter userId={getUserId(user || {}) || ""} userType="landlord" />
+          <MessageCenter
+            userId={getUserId(user || {}) || ""}
+            userType="landlord"
+            contacts={viewingRequests
+              .filter((v: any) => v.tenantId && (typeof v.tenantId === 'object' ? v.tenantId.name : false))
+              .map((v: any) => ({
+                id: typeof v.tenantId === 'object' ? (v.tenantId._id ?? v.tenantId.id ?? String(v.tenantId)) : String(v.tenantId),
+                name: typeof v.tenantId === 'object' ? v.tenantId.name : 'Tenant',
+                email: typeof v.tenantId === 'object' ? v.tenantId.email : undefined,
+              }))
+              .filter((c: any, idx: number, arr: any[]) => arr.findIndex((x: any) => x.id === c.id) === idx)}
+          />
         )}
       </div>
     </div>

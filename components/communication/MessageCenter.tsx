@@ -16,14 +16,23 @@ import type { IMessage, IViewing, PopulatedMessage, PopulatedViewing, IUser, IPr
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 
+interface Contact {
+  id: string;
+  name: string;
+  email?: string;
+}
+
 interface MessageCenterProps {
   userId: string;
   userType: 'tenant' | 'landlord';
+  /** Pre-populated contacts (e.g. landlords from viewings) shown in the To dropdown */
+  contacts?: Contact[];
 }
 
 export const MessageCenter: React.FC<MessageCenterProps> = ({
   userId,
   userType,
+  contacts = [],
 }) => {
   const [messages, setMessages] = useState<PopulatedMessage[]>([]);
   const [sentMessages, setSentMessages] = useState<PopulatedMessage[]>([]);
@@ -313,13 +322,31 @@ export const MessageCenter: React.FC<MessageCenterProps> = ({
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
-                        <Label htmlFor="toUserId">To User ID</Label>
-                        <Input
-                          id="toUserId"
-                          value={newMessage.toUserId}
-                          onChange={(e) => setNewMessage({ ...newMessage, toUserId: e.target.value })}
-                          placeholder="Enter user ID"
-                        />
+                        <Label htmlFor="toUserId">To</Label>
+                        {contacts.length > 0 ? (
+                          <Select
+                            value={newMessage.toUserId}
+                            onValueChange={(value) => setNewMessage({ ...newMessage, toUserId: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select recipient" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {contacts.map((c) => (
+                                <SelectItem key={c.id} value={c.id}>
+                                  {c.name}{c.email ? ` (${c.email})` : ''}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            id="toUserId"
+                            value={newMessage.toUserId}
+                            onChange={(e) => setNewMessage({ ...newMessage, toUserId: e.target.value })}
+                            placeholder="Enter user ID"
+                          />
+                        )}
                       </div>
                       <div>
                         <Label htmlFor="subject">Subject</Label>
