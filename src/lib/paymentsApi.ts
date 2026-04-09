@@ -138,6 +138,11 @@ export const paymentsApi = {
     URL.revokeObjectURL(url)
   },
 
+  getMyReviews: async (): Promise<ApiResponse<any[]>> => {
+    const response = await apiClient.get<ApiResponse<any[]>>(`/reviews/my`)
+    return response.data
+  },
+
   getActivityLog: async (): Promise<ApiResponse<any[]>> => {
     const response = await apiClient.get<ApiResponse<any[]>>(`/payments/activity`)
     return response.data

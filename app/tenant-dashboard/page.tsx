@@ -279,6 +279,19 @@ export default function TenantDashboard() {
     if (user) fetchViewings();
   }, [user]);
 
+  // Load already-reviewed viewing IDs so the "Leave Review" button shows correctly
+  useEffect(() => {
+    if (!user) return;
+    paymentsApi.getMyReviews()
+      .then((res) => {
+        if (res.success && Array.isArray(res.data)) {
+          const ids = new Set<string>(res.data.map((r: any) => String(r.viewingId?._id ?? r.viewingId)));
+          setReviewedViewingIds(ids);
+        }
+      })
+      .catch(() => {});
+  }, [user]);
+
   useEffect(() => {
     if (activeTab === "payments") {
       fetchPaymentHistory();
@@ -1076,6 +1089,11 @@ export default function TenantDashboard() {
                           >
                             <Star className="h-3.5 w-3.5" /> Leave Review
                           </button>
+                        )}
+                        {viewing.status === "completed" && reviewedViewingIds.has(viewing._id) && (
+                          <span className="flex items-center gap-1.5 text-xs text-green-600 font-medium">
+                            <CheckCircle className="h-3.5 w-3.5" /> Reviewed
+                          </span>
                         )}
                       </div>
                     </div>
