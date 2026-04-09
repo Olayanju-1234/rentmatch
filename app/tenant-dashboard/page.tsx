@@ -486,10 +486,14 @@ export default function TenantDashboard() {
   const totalPaid = paymentHistory.filter((p) => p.type === "deposit").reduce((s, p) => s + p.amount, 0);
   const totalRefunded = paymentHistory.filter((p) => p.type === "refund").reduce((s, p) => s + p.amount, 0);
 
-  if (authLoading || loading) {
+  // Only block if there's no cached user at all — returning users see content immediately
+  if ((authLoading && !user) || (loading && !user)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <LoadingSpinner size="lg" />
+        <div className="flex flex-col items-center gap-3">
+          <LoadingSpinner size="lg" />
+          <p className="text-sm text-gray-500">Loading your dashboard...</p>
+        </div>
       </div>
     );
   }
