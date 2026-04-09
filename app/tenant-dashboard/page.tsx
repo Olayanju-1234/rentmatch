@@ -20,6 +20,7 @@ import { MessageCenter } from "@/components/communication/MessageCenter";
 import { ProfileManager } from "@/components/profile/ProfileManager";
 import { RequestViewingModal } from "@/components/common/RequestViewingModal";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { ViewingCalendar } from "@/components/viewings/ViewingCalendar";
 import { convertBackendToFrontend } from "@/src/utils/typeConversion";
 import type { ITenant, PropertyMatch, IProperty } from "@/src/types";
 import { useToast } from "@/hooks/use-toast";
@@ -148,6 +149,9 @@ export default function TenantDashboard() {
   // Activity log
   const [activityLog, setActivityLog] = useState<any[]>([]);
   const [loadingActivity, setLoadingActivity] = useState(false);
+
+  // Viewings display mode
+  const [viewingsDisplay, setViewingsDisplay] = useState<"list" | "calendar">("list");
 
   // Search filters for matches tab
   const [showFilters, setShowFilters] = useState(false);
@@ -999,13 +1003,30 @@ export default function TenantDashboard() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-gray-900">Viewing Requests</h2>
-              <button
-                onClick={fetchViewings}
-                disabled={loadingViewings}
-                className="flex items-center gap-1.5 text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg bg-white hover:bg-gray-50"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${loadingViewings ? "animate-spin" : ""}`} /> Refresh
-              </button>
+              <div className="flex items-center gap-2">
+                {/* List / Calendar toggle */}
+                <div className="flex bg-gray-100 rounded-lg p-1 gap-0.5">
+                  <button
+                    onClick={() => setViewingsDisplay("list")}
+                    className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md transition-all ${viewingsDisplay === "list" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                  >
+                    <RefreshCw className="h-3 w-3" /> List
+                  </button>
+                  <button
+                    onClick={() => setViewingsDisplay("calendar")}
+                    className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md transition-all ${viewingsDisplay === "calendar" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                  >
+                    <Calendar className="h-3 w-3" /> Calendar
+                  </button>
+                </div>
+                <button
+                  onClick={fetchViewings}
+                  disabled={loadingViewings}
+                  className="flex items-center gap-1.5 text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg bg-white hover:bg-gray-50"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${loadingViewings ? "animate-spin" : ""}`} /> Refresh
+                </button>
+              </div>
             </div>
             {loadingViewings ? (
               <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>
@@ -1015,6 +1036,15 @@ export default function TenantDashboard() {
                 <h3 className="font-medium text-gray-900 mb-1">No viewing requests</h3>
                 <p className="text-sm text-gray-500">Request a viewing from your matched properties.</p>
               </div>
+            ) : viewingsDisplay === "calendar" ? (
+              <ViewingCalendar
+                viewings={viewings}
+                onViewingClick={(id) => {
+                  setViewingsDisplay("list");
+                  const el = document.getElementById(`viewing-${id}`);
+                  el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }}
+              />
             ) : (
               viewings.map((viewing) => {
                 const deposit = depositStatuses[viewing._id];
@@ -1023,7 +1053,7 @@ export default function TenantDashboard() {
                 const canReview = viewing.status === "completed" && !reviewedViewingIds.has(viewing._id);
 
                 return (
-                  <div key={viewing._id} className="bg-white border border-gray-100 rounded-xl p-5">
+                  <div key={viewing._id} id={`viewing-${viewing._id}`} className="bg-white border border-gray-100 rounded-xl p-5">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
