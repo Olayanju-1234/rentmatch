@@ -149,6 +149,10 @@ export default function TenantDashboard() {
   const [activityLog, setActivityLog] = useState<any[]>([]);
   const [loadingActivity, setLoadingActivity] = useState(false);
 
+  // Search filters for matches tab
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({ minRent: "", maxRent: "", bedrooms: "", city: "" });
+
   // Property comparison (up to 3 saved properties)
   const [compareIds, setCompareIds] = useState<string[]>([]);
 
@@ -765,6 +769,12 @@ export default function TenantDashboard() {
               <h2 className="text-base font-semibold text-gray-900">Your Top Matches</h2>
               <div className="flex gap-2">
                 <button
+                  onClick={() => setShowFilters((v) => !v)}
+                  className={`flex items-center gap-1.5 text-xs border px-3 py-1.5 rounded-lg bg-white transition-colors ${showFilters ? "border-blue-300 text-blue-600 bg-blue-50" : "border-gray-200 text-gray-500 hover:text-gray-700"}`}
+                >
+                  <Filter className="h-3.5 w-3.5" /> Filters
+                </button>
+                <button
                   onClick={() => setShowPreferencesModal(true)}
                   className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg bg-white"
                 >
@@ -779,6 +789,63 @@ export default function TenantDashboard() {
                 </button>
               </div>
             </div>
+
+            {/* Filter panel */}
+            {showFilters && (
+              <div className="bg-white border border-gray-100 rounded-xl p-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 block mb-1">Min Rent (£/yr)</label>
+                    <input
+                      type="number"
+                      value={filters.minRent}
+                      onChange={(e) => setFilters((f) => ({ ...f, minRent: e.target.value }))}
+                      placeholder="e.g. 10000"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 block mb-1">Max Rent (£/yr)</label>
+                    <input
+                      type="number"
+                      value={filters.maxRent}
+                      onChange={(e) => setFilters((f) => ({ ...f, maxRent: e.target.value }))}
+                      placeholder="e.g. 30000"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 block mb-1">Bedrooms</label>
+                    <select
+                      value={filters.bedrooms}
+                      onChange={(e) => setFilters((f) => ({ ...f, bedrooms: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Any</option>
+                      {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}+</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 block mb-1">City</label>
+                    <input
+                      type="text"
+                      value={filters.city}
+                      onChange={(e) => setFilters((f) => ({ ...f, city: e.target.value }))}
+                      placeholder="e.g. London"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end mt-3">
+                  <button
+                    onClick={() => setFilters({ minRent: "", maxRent: "", bedrooms: "", city: "" })}
+                    className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    Clear filters
+                  </button>
+                </div>
+              </div>
+            )}
 
             {fetchingMatches && (
               <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>
@@ -797,7 +864,15 @@ export default function TenantDashboard() {
               </div>
             )}
 
-            {matches.map((match) => {
+            {matches.filter((match) => {
+              const property = properties.find((p) => p._id === match.propertyId);
+              if (!property) return true;
+              if (filters.minRent && property.rent < Number(filters.minRent)) return false;
+              if (filters.maxRent && property.rent > Number(filters.maxRent)) return false;
+              if (filters.bedrooms && property.bedrooms < Number(filters.bedrooms)) return false;
+              if (filters.city && !property.location?.city?.toLowerCase().includes(filters.city.toLowerCase())) return false;
+              return true;
+            }).map((match) => {
               const property = properties.find((p) => p._id === match.propertyId);
               const score = Math.round(match.matchScore);
               return (
