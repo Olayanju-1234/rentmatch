@@ -1138,7 +1138,21 @@ export default function TenantDashboard() {
         {/* Payments */}
         {activeTab === "payments" && (
           <div className="space-y-6">
-            <h2 className="text-base font-semibold text-gray-900">Payment History</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900">Payment History</h2>
+              <button
+                onClick={async () => {
+                  try {
+                    await paymentsApi.exportPaymentHistoryCsv();
+                  } catch {
+                    toast({ title: "Export failed", description: "Could not download CSV.", variant: "destructive" });
+                  }
+                }}
+                className="flex items-center gap-1.5 text-xs border border-gray-200 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors"
+              >
+                <Receipt className="h-3.5 w-3.5" /> Export CSV
+              </button>
+            </div>
 
             {/* Summary cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

@@ -128,6 +128,16 @@ export const paymentsApi = {
     return response.data
   },
 
+  exportPaymentHistoryCsv: async (): Promise<void> => {
+    const response = await apiClient.get('/payments/history/export', { responseType: 'blob' })
+    const url = URL.createObjectURL(new Blob([response.data], { type: 'text/csv' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `rentmatch-payments-${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+
   getActivityLog: async (): Promise<ApiResponse<any[]>> => {
     const response = await apiClient.get<ApiResponse<any[]>>(`/payments/activity`)
     return response.data
