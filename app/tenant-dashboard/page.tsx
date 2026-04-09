@@ -25,6 +25,8 @@ import type { ITenant, PropertyMatch, IProperty } from "@/src/types";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useSocket } from "@/src/hooks/useSocket";
+import { NotificationBell } from "@/components/ui/notification-bell";
+import type { Notification } from "@/components/ui/notification-bell";
 
 type Tab = "matches" | "viewings" | "saved" | "payments" | "preferences" | "messages" | "analytics" | "profile";
 
@@ -154,6 +156,13 @@ export default function TenantDashboard() {
   // Refund state
   const [refundingId, setRefundingId] = useState<string | null>(null);
 
+  // Notifications
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  const addNotification = (n: Omit<Notification, "id" | "time" | "read">) => {
+    setNotifications((prev) => [{ ...n, id: String(Date.now()), time: new Date(), read: false }, ...prev].slice(0, 30));
+  };
+
   // Payment method selection
   const [payMethodViewing, setPayMethodViewing] = useState<string | null>(null);
 
@@ -196,17 +205,15 @@ export default function TenantDashboard() {
   useSocket({
     userId: user?._id,
     onViewingStatusUpdated: ({ status, propertyTitle }) => {
-      toast({
-        title: "Viewing Update",
-        description: `Your viewing for "${propertyTitle || 'a property'}" is now ${status}.`,
-      });
+      const desc = `Your viewing for "${propertyTitle || 'a property'}" is now ${status}.`;
+      toast({ title: "Viewing Update", description: desc });
+      addNotification({ type: "viewing", title: "Viewing Update", description: desc });
       fetchViewings();
     },
     onNewMessage: ({ subject }) => {
-      toast({
-        title: "New Message",
-        description: subject || "You have a new message.",
-      });
+      const desc = subject || "You have a new message.";
+      toast({ title: "New Message", description: desc });
+      addNotification({ type: "message", title: "New Message", description: desc });
     },
   });
 
@@ -643,9 +650,11 @@ export default function TenantDashboard() {
             <span className="text-sm text-gray-500">Tenant</span>
           </div>
           <div className="flex items-center gap-3">
-            <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-              <Bell className="h-5 w-5" />
-            </button>
+            <NotificationBell
+              notifications={notifications}
+              onClearAll={() => setNotifications([])}
+              onMarkRead={(id) => setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n))}
+            />
             <div className="relative">
               <button
                 onClick={() => setShowUserMenu((v) => !v)}

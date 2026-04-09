@@ -8,6 +8,8 @@ import { ProfileManager } from "@/components/profile/ProfileManager"
 import { propertiesApi } from "@/src/lib/propertiesApi"
 import { useAuth } from "@/src/context/AuthContext"
 import { useSocket } from "@/src/hooks/useSocket"
+import { NotificationBell } from "@/components/ui/notification-bell"
+import type { Notification } from "@/components/ui/notification-bell"
 import { convertBackendToFrontend } from "@/src/utils/typeConversion"
 import type { IProperty, IViewing } from "@/src/types"
 import {
@@ -129,6 +131,12 @@ export default function PropertyManagerDashboard() {
   const [loadingConnect, setLoadingConnect] = useState(false)
   const [startingOnboarding, setStartingOnboarding] = useState(false)
 
+  // Notifications
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const addNotification = (n: Omit<Notification, "id" | "time" | "read">) => {
+    setNotifications((prev) => [{ ...n, id: String(Date.now()), time: new Date(), read: false }, ...prev].slice(0, 30))
+  }
+
   // Rent payment tracking
   const [rentPayments, setRentPayments] = useState<any[]>([])
   const [showRentForm, setShowRentForm] = useState(false)
@@ -162,10 +170,14 @@ export default function PropertyManagerDashboard() {
   useSocket({
     userId: user ? ((user as any)._id ?? (user as any).id) : undefined,
     onViewingStatusUpdated: ({ status, propertyTitle }) => {
-      showToast("success", `Viewing for "${propertyTitle || 'a property'}" marked as ${status}.`);
+      const desc = `Viewing for "${propertyTitle || 'a property'}" marked as ${status}.`
+      showToast("success", desc)
+      addNotification({ type: "viewing", title: "Viewing Update", description: desc })
     },
     onNewMessage: ({ subject }) => {
-      showToast("success", `New message: ${subject || 'You have a new message.'}`);
+      const desc = subject || "You have a new message."
+      showToast("success", `New message: ${desc}`)
+      addNotification({ type: "message", title: "New Message", description: desc })
     },
   });
 
@@ -912,9 +924,11 @@ export default function PropertyManagerDashboard() {
               <Plus className="h-3.5 w-3.5" />
               Add Property
             </button>
-            <button className="relative w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
-              <Bell className="h-4 w-4 text-gray-500" />
-            </button>
+            <NotificationBell
+              notifications={notifications}
+              onClearAll={() => setNotifications([])}
+              onMarkRead={(id) => setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n))}
+            />
             <div className="relative">
               <button
                 onClick={() => setShowUserMenu((v) => !v)}
