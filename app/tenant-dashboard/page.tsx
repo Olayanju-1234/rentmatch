@@ -21,6 +21,7 @@ import { ProfileManager } from "@/components/profile/ProfileManager";
 import { RequestViewingModal } from "@/components/common/RequestViewingModal";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ViewingCalendar } from "@/components/viewings/ViewingCalendar";
+import { PropertyCard } from "@/components/property/PropertyCard";
 import { convertBackendToFrontend } from "@/src/utils/typeConversion";
 import type { ITenant, PropertyMatch, IProperty } from "@/src/types";
 import { useToast } from "@/hooks/use-toast";
@@ -891,108 +892,28 @@ export default function TenantDashboard() {
               return true;
             }).map((match) => {
               const property = properties.find((p) => p._id === match.propertyId);
-              const score = Math.round(match.matchScore);
               return (
-                <div key={match.propertyId} className="bg-white border border-gray-100 rounded-xl overflow-hidden hover:shadow-sm transition-shadow">
-                  <div className="md:flex">
-                    <div className="md:w-64 shrink-0">
-                      <img
-                        src={property?.images?.[0] || "/placeholder.svg"}
-                        alt={property?.title}
-                        className="w-full h-48 md:h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex-1 p-5">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-gray-900 text-lg mb-1 truncate">
-                            {property?.title || `Property ${match.propertyId}`}
-                          </h3>
-                          {property?.location && (
-                            <div className="flex items-center gap-1 text-gray-400 text-sm mb-2">
-                              <MapPin className="h-3.5 w-3.5 shrink-0" />
-                              {property.location.address}, {property.location.city}
-                            </div>
-                          )}
-                          {property?.rent && (
-                            <p className="text-xl font-bold text-gray-900">
-                              ₦{property.rent.toLocaleString()}<span className="text-sm font-normal text-gray-400">/yr</span>
-                            </p>
-                          )}
-                        </div>
-                        <div className="ml-4 text-right shrink-0">
-                          <div className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-sm font-semibold ${score >= 70 ? "bg-green-50 text-green-700" : score >= 50 ? "bg-yellow-50 text-yellow-700" : "bg-gray-50 text-gray-600"}`}>
-                            {score}% Match
-                          </div>
-                          <div className="mt-2 h-1.5 w-24 bg-gray-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-blue-500 rounded-full" style={{ width: `${score}%` }} />
-                          </div>
-                          {propertyRatings[match.propertyId] && (
-                            <div className="mt-2 flex items-center justify-end gap-1">
-                              {[1,2,3,4,5].map((s) => (
-                                <Star key={s} className={`h-3 w-3 ${s <= Math.round(propertyRatings[match.propertyId].avg) ? "fill-yellow-400 text-yellow-400" : "text-gray-200"}`} />
-                              ))}
-                              <span className="text-xs text-gray-400 ml-1">{propertyRatings[match.propertyId].avg} ({propertyRatings[match.propertyId].total})</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {property && (
-                        <div className="flex items-center gap-4 text-sm text-gray-500 mb-3">
-                          <span className="flex items-center gap-1"><Bed className="h-4 w-4" />{property.bedrooms} bed</span>
-                          <span className="flex items-center gap-1"><Bath className="h-4 w-4" />{property.bathrooms} bath</span>
-                          {property.size && <span>{property.size} sqm</span>}
-                        </div>
-                      )}
-
-                      {match.explanation?.length > 0 && (
-                        <div className="mb-4">
-                          <ul className="space-y-0.5">
-                            {match.explanation.slice(0, 3).map((r, i) => (
-                              <li key={i} className="flex items-start gap-1.5 text-xs text-gray-500">
-                                <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0 mt-0.5" />
-                                {r}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      <div className="flex gap-2 flex-wrap">
-                        {(() => {
-                          const isSaved = tenant?.savedProperties?.includes(match.propertyId);
-                          return (
-                            <button
-                              onClick={() => handleSaveProperty(match.propertyId)}
-                              className={`flex items-center gap-1.5 text-xs border px-3 py-1.5 rounded-lg transition-colors ${isSaved ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100" : "border-gray-200 hover:bg-gray-50 text-gray-600"}`}
-                            >
-                              <Heart className={`h-3.5 w-3.5 ${isSaved ? "fill-red-500 text-red-500" : ""}`} />
-                              {isSaved ? "Saved" : "Save"}
-                            </button>
-                          );
-                        })()}
-                        {property?.status === "available" ? (
-                          <button
-                            onClick={() => { if (property) { setViewingPropertyId(property._id); setShowViewingModal(true); } }}
-                            className="flex items-center gap-1.5 text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700"
-                          >
-                            <Calendar className="h-3.5 w-3.5" /> Request Viewing
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleJoinWaitlist(match.propertyId)}
-                            disabled={waitlistedIds.has(match.propertyId) || joiningWaitlist === match.propertyId}
-                            className="flex items-center gap-1.5 text-xs border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-60 px-3 py-1.5 rounded-lg transition-colors"
-                          >
-                            <Bell className="h-3.5 w-3.5" />
-                            {waitlistedIds.has(match.propertyId) ? "On Waitlist" : joiningWaitlist === match.propertyId ? "Joining..." : "Join Waitlist"}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <PropertyCard
+                  key={match.propertyId}
+                  propertyId={match.propertyId}
+                  title={property?.title ?? `Property ${match.propertyId}`}
+                  location={property?.location}
+                  rent={property?.rent}
+                  bedrooms={property?.bedrooms}
+                  bathrooms={property?.bathrooms}
+                  size={property?.size}
+                  status={property?.status}
+                  images={property?.images ?? []}
+                  matchScore={match.matchScore}
+                  rating={propertyRatings[match.propertyId]}
+                  isSaved={tenant?.savedProperties?.includes(match.propertyId)}
+                  isWaitlisted={waitlistedIds.has(match.propertyId)}
+                  joiningWaitlist={joiningWaitlist === match.propertyId}
+                  explanation={match.explanation ?? []}
+                  onSave={() => handleSaveProperty(match.propertyId)}
+                  onBook={property?.status === "available" && property ? () => { setViewingPropertyId(property._id); setShowViewingModal(true); } : undefined}
+                  onWaitlist={property?.status !== "available" ? () => handleJoinWaitlist(match.propertyId) : undefined}
+                />
               );
             })}
           </div>
