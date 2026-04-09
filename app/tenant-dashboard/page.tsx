@@ -27,6 +27,9 @@ import { useRouter } from "next/navigation";
 import { useSocket } from "@/src/hooks/useSocket";
 import { NotificationBell } from "@/components/ui/notification-bell";
 import type { Notification } from "@/components/ui/notification-bell";
+import { analyticsApi } from "@/src/lib/analyticsApi";
+import type { TenantAnalytics } from "@/src/lib/analyticsApi";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 type Tab = "matches" | "viewings" | "saved" | "payments" | "preferences" | "messages" | "analytics" | "profile";
 
@@ -156,6 +159,9 @@ export default function TenantDashboard() {
   // Refund state
   const [refundingId, setRefundingId] = useState<string | null>(null);
 
+  // Tenant analytics
+  const [tenantAnalytics, setTenantAnalytics] = useState<TenantAnalytics | null>(null);
+
   // Notifications
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
@@ -274,7 +280,12 @@ export default function TenantDashboard() {
       fetchPaymentHistory();
       fetchActivityLog();
     }
-  }, [activeTab]);
+    if (activeTab === "analytics" && !tenantAnalytics && user) {
+      analyticsApi.getTenantAnalytics()
+        .then((res) => { if (res.success && res.data) setTenantAnalytics(res.data); })
+        .catch(() => {});
+    }
+  }, [activeTab, user]);
 
   const fetchSavedProperties = async (savedIds: string[]) => {
     if (!savedIds.length) return;
@@ -1334,10 +1345,40 @@ export default function TenantDashboard() {
                 </div>
               ))}
             </div>
-            <div className="bg-white border border-gray-100 rounded-xl p-6 text-center">
-              <BarChart3 className="h-8 w-8 text-gray-200 mx-auto mb-3" />
-              <p className="text-sm text-gray-400">Activity charts coming soon</p>
-            </div>
+            {tenantAnalytics ? (
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: "Total Viewings", value: tenantAnalytics.viewings.total, color: "text-blue-600" },
+                    { label: "Confirmed", value: tenantAnalytics.viewings.confirmed, color: "text-green-600" },
+                    { label: "Completed", value: tenantAnalytics.viewings.completed, color: "text-purple-600" },
+                    { label: "Cancelled", value: tenantAnalytics.viewings.cancelled, color: "text-red-600" },
+                  ].map((s) => (
+                    <div key={s.label} className="bg-white border border-gray-100 rounded-xl p-4">
+                      <p className="text-xs text-gray-400 mb-1">{s.label}</p>
+                      <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="bg-white border border-gray-100 rounded-xl p-5">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Monthly Viewing Activity (Last 6 Months)</h3>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={tenantAnalytics.monthlyViewings} margin={{ top: 4, right: 16, left: -16, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                      <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                      <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }} />
+                      <Bar dataKey="count" name="Viewings" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </>
+            ) : (
+              <div className="bg-white border border-gray-100 rounded-xl p-6 text-center">
+                <BarChart3 className="h-8 w-8 text-gray-200 mx-auto mb-3" />
+                <p className="text-sm text-gray-400">Loading analytics...</p>
+              </div>
+            )}
           </div>
         )}
 

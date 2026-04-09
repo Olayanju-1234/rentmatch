@@ -45,6 +45,9 @@ import { paymentsApi } from "@/src/lib/paymentsApi"
 import type { PropertyReview } from "@/src/lib/paymentsApi"
 import { optimizationApi } from "@/src/lib/optimizationApi"
 import { communicationApi } from "@/src/lib/communicationApi"
+import { analyticsApi } from "@/src/lib/analyticsApi"
+import type { LandlordAnalytics } from "@/src/lib/analyticsApi"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
 
 function getUserId(user: { _id?: string; id?: string }): string | undefined {
   return user?._id || (user as any)?.id
@@ -130,6 +133,10 @@ export default function PropertyManagerDashboard() {
   const [connectStatus, setConnectStatus] = useState<{ status: "none" | "pending" | "connected"; payoutsEnabled?: boolean; requirements?: string[] } | null>(null)
   const [loadingConnect, setLoadingConnect] = useState(false)
   const [startingOnboarding, setStartingOnboarding] = useState(false)
+
+  // Landlord analytics
+  const [landlordAnalytics, setLandlordAnalytics] = useState<LandlordAnalytics | null>(null)
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false)
 
   // Notifications
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -324,6 +331,15 @@ export default function PropertyManagerDashboard() {
       .catch((err) => setMarketStatsError(err?.message || "Failed to load stats"))
       .finally(() => setMarketStatsLoading(false))
   }, [])
+
+  useEffect(() => {
+    if (!user) return
+    setLoadingAnalytics(true)
+    analyticsApi.getLandlordAnalytics()
+      .then((res) => { if (res.success && res.data) setLandlordAnalytics(res.data) })
+      .catch(() => {})
+      .finally(() => setLoadingAnalytics(false))
+  }, [user])
 
   useEffect(() => {
     if (!user || isLoading || user.userType !== "landlord") return
@@ -1343,6 +1359,63 @@ export default function PropertyManagerDashboard() {
                 </div>
               )}
             </div>
+
+            {/* Analytics KPIs from backend */}
+            {landlordAnalytics && (
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: "Total Viewings", value: landlordAnalytics.viewings.total, color: "text-blue-600" },
+                    { label: "Confirmed", value: landlordAnalytics.viewings.confirmed, color: "text-green-600" },
+                    { label: "Conversion Rate", value: `${landlordAnalytics.viewings.conversionRate}%`, color: "text-purple-600" },
+                    { label: "Avg Rating", value: landlordAnalytics.rating.avg ? `${landlordAnalytics.rating.avg} ★` : "—", color: "text-yellow-600" },
+                  ].map((s) => (
+                    <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4">
+                      <p className="text-xs text-gray-400 mb-1">{s.label}</p>
+                      <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Monthly viewings chart */}
+                <div className="bg-white rounded-xl border border-gray-100 p-5">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Monthly Viewing Requests (Last 6 Months)</h3>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={landlordAnalytics.monthlyViewings} margin={{ top: 4, right: 16, left: -16, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                      <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                      <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }} />
+                      <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                      <Bar dataKey="count" name="All Requests" fill="#e0e7ff" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="confirmed" name="Confirmed" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Revenue by currency */}
+                {Object.keys(landlordAnalytics.revenue.byCurrency).length > 0 && (
+                  <div className="bg-white rounded-xl border border-gray-100 p-5">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Deposit Revenue Received</h3>
+                    <div className="flex gap-6 flex-wrap">
+                      {Object.entries(landlordAnalytics.revenue.byCurrency).map(([currency, amount]) => (
+                        <div key={currency}>
+                          <p className="text-xs text-gray-400">{currency}</p>
+                          <p className="text-xl font-bold text-gray-900">
+                            {currency === "GBP" ? `£${amount.toLocaleString()}` : currency === "NGN" ? `₦${amount.toLocaleString()}` : `${currency} ${amount.toLocaleString()}`}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+            {loadingAnalytics && !landlordAnalytics && (
+              <div className="bg-white rounded-xl border border-gray-100 p-8 text-center">
+                <p className="text-sm text-gray-400">Loading analytics...</p>
+              </div>
+            )}
           </div>
         )}
 
