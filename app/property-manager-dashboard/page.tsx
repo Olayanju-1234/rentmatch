@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useSearchParams } from "next/navigation"
+import { OnboardingWizard } from "@/components/landlord/OnboardingWizard"
 import { MessageCenter } from "@/components/communication/MessageCenter"
 import { ProfileManager } from "@/components/profile/ProfileManager"
 import { propertiesApi } from "@/src/lib/propertiesApi"
@@ -101,6 +102,7 @@ function statusBadge(status: string) {
 export default function PropertyManagerDashboard() {
   const [activeTab, setActiveTab] = useState("properties")
   const [showForm, setShowForm] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
   const [editingProperty, setEditingProperty] = useState<IProperty | null>(null)
   const [properties, setProperties] = useState<IProperty[]>([])
   const [loading, setLoading] = useState(true)
@@ -909,6 +911,17 @@ export default function PropertyManagerDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Onboarding Wizard */}
+      {showOnboarding && (
+        <OnboardingWizard
+          onComplete={() => {
+            setShowOnboarding(false)
+            fetchProperties()
+          }}
+          onClose={() => setShowOnboarding(false)}
+        />
+      )}
+
       {/* Toast */}
       {toast && (
         <div
@@ -934,7 +947,7 @@ export default function PropertyManagerDashboard() {
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={openAddForm}
+              onClick={() => setShowOnboarding(true)}
               className="flex items-center gap-1.5 bg-gray-900 hover:bg-gray-700 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -1030,10 +1043,10 @@ export default function PropertyManagerDashboard() {
                 <p className="text-gray-900 font-semibold mb-1">No properties yet</p>
                 <p className="text-gray-500 text-sm mb-4">Add your first property to start attracting tenants.</p>
                 <button
-                  onClick={openAddForm}
+                  onClick={() => setShowOnboarding(true)}
                   className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-gray-700 transition-colors"
                 >
-                  <Plus className="h-4 w-4" /> Add Property
+                  <Plus className="h-4 w-4" /> Add Your First Property
                 </button>
               </div>
             ) : (
