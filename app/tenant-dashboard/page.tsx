@@ -22,6 +22,11 @@ import { RequestViewingModal } from "@/components/common/RequestViewingModal";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ViewingCalendar } from "@/components/viewings/ViewingCalendar";
 import { PropertyCard } from "@/components/property/PropertyCard";
+import dynamic from "next/dynamic";
+const PropertyMap = dynamic(
+  () => import("@/components/property/PropertyMap").then((m) => m.PropertyMap),
+  { ssr: false, loading: () => <div className="h-96 bg-gray-50 rounded-xl animate-pulse" /> }
+);
 import { convertBackendToFrontend } from "@/src/utils/typeConversion";
 import type { ITenant, PropertyMatch, IProperty } from "@/src/types";
 import { useToast } from "@/hooks/use-toast";
@@ -180,6 +185,14 @@ export default function TenantDashboard() {
 
   // Payment method selection
   const [payMethodViewing, setPayMethodViewing] = useState<string | null>(null);
+
+  // Map view
+  const [matchesDisplay, setMatchesDisplay] = useState<"list" | "map">("list");
+
+  // Meridian
+  const [meridianResult, setMeridianResult] = useState<any>(null);
+  const [fetchingMeridian, setFetchingMeridian] = useState(false);
+  const [showMeridian, setShowMeridian] = useState(false);
 
   // Reviews
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -357,6 +370,33 @@ export default function TenantDashboard() {
       setMatches([]);
     } finally {
       setFetchingMatches(false);
+    }
+  };
+
+  const fetchMeridian = async () => {
+    if (!tenant?._id) return;
+    setFetchingMeridian(true);
+    setShowMeridian(true);
+    try {
+      const res = await optimizationApi.getMeridianMatches(tenant._id);
+      if (res.success && res.data) {
+        setMeridianResult(res.data);
+        // Load assigned property if not already in state
+        if (res.data.assignedProperty?.propertyId) {
+          const pid = res.data.assignedProperty.propertyId;
+          const exists = properties.find((p) => p._id === pid?.toString());
+          if (!exists) {
+            const pr = await propertiesApi.getById(pid.toString());
+            if (pr.success && pr.data) {
+              setProperties((prev) => [...prev, convertBackendToFrontend.property(pr.data)]);
+            }
+          }
+        }
+      }
+    } catch {
+      toast({ title: "Meridian Error", description: "Could not run Meridian matching.", variant: "destructive" });
+    } finally {
+      setFetchingMeridian(false);
     }
   };
 
@@ -786,6 +826,21 @@ export default function TenantDashboard() {
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-gray-900">Your Top Matches</h2>
               <div className="flex gap-2">
+                {/* List / Map toggle */}
+                <div className="flex bg-gray-100 rounded-lg p-1 gap-0.5">
+                  <button
+                    onClick={() => setMatchesDisplay("list")}
+                    className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md transition-all ${matchesDisplay === "list" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                  >
+                    <Home className="h-3 w-3" /> List
+                  </button>
+                  <button
+                    onClick={() => setMatchesDisplay("map")}
+                    className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md transition-all ${matchesDisplay === "map" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                  >
+                    <MapPin className="h-3 w-3" /> Map
+                  </button>
+                </div>
                 <button
                   onClick={() => setShowFilters((v) => !v)}
                   className={`flex items-center gap-1.5 text-xs border px-3 py-1.5 rounded-lg bg-white transition-colors ${showFilters ? "border-blue-300 text-blue-600 bg-blue-50" : "border-gray-200 text-gray-500 hover:text-gray-700"}`}
@@ -797,6 +852,14 @@ export default function TenantDashboard() {
                   className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg bg-white"
                 >
                   <Settings className="h-3.5 w-3.5" /> Preferences
+                </button>
+                <button
+                  onClick={fetchMeridian}
+                  disabled={fetchingMeridian || !tenant}
+                  className={`flex items-center gap-1.5 text-xs border px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 ${showMeridian ? "border-violet-300 bg-violet-50 text-violet-700" : "border-gray-200 text-gray-500 hover:text-gray-700 bg-white"}`}
+                >
+                  <TrendingUp className={`h-3.5 w-3.5 ${fetchingMeridian ? "animate-pulse" : ""}`} />
+                  Meridian
                 </button>
                 <button
                   onClick={() => tenant && fetchMatches(tenant)}
@@ -865,6 +928,136 @@ export default function TenantDashboard() {
               </div>
             )}
 
+            {/* Meridian result panel */}
+            {showMeridian && (
+              <div className="bg-white border border-violet-100 rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-violet-50 bg-violet-50/60">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-violet-600" />
+                    <span className="text-sm font-semibold text-violet-900">Meridian Match</span>
+                    <span className="text-[11px] bg-violet-100 text-violet-600 px-2 py-0.5 rounded-full font-medium">Market-clearing engine</span>
+                  </div>
+                  <button onClick={() => setShowMeridian(false)} className="text-xs text-gray-400 hover:text-gray-600">Dismiss</button>
+                </div>
+
+                {fetchingMeridian && (
+                  <div className="flex justify-center py-8"><LoadingSpinner size="md" /></div>
+                )}
+
+                {!fetchingMeridian && meridianResult && (
+                  <div className="p-5 space-y-4">
+                    {/* Market stats */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {[
+                        { label: "Cohort size", value: meridianResult.marketStats.cohortSize },
+                        { label: "Properties evaluated", value: meridianResult.marketStats.propertiesEvaluated },
+                        { label: "Global compatibility", value: `${Math.round(meridianResult.marketStats.globalObjectiveValue * 100)}%` },
+                        { label: "Your compatibility", value: `${Math.round(meridianResult.marketStats.yourObjectiveValue * 100)}%` },
+                      ].map((s) => (
+                        <div key={s.label} className="bg-gray-50 rounded-lg p-3 text-center">
+                          <p className="text-lg font-bold text-gray-900">{s.value}</p>
+                          <p className="text-[11px] text-gray-400 mt-0.5">{s.label}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Assigned property */}
+                    {meridianResult.assignedProperty ? (() => {
+                      const ap = meridianResult.assignedProperty;
+                      const pid = ap.propertyId?.toString?.() ?? ap.propertyId;
+                      const property = properties.find((p) => p._id === pid);
+                      return (
+                        <div>
+                          <p className="text-xs font-semibold text-violet-700 uppercase tracking-wide mb-2">Globally Optimal Assignment</p>
+                          <PropertyCard
+                            propertyId={pid}
+                            title={property?.title ?? `Property ${pid}`}
+                            location={property?.location}
+                            rent={property?.rent}
+                            bedrooms={property?.bedrooms}
+                            bathrooms={property?.bathrooms}
+                            size={property?.size}
+                            status={property?.status}
+                            images={property?.images ?? []}
+                            matchScore={ap.matchScore}
+                            rating={propertyRatings[pid]}
+                            isSaved={tenant?.savedProperties?.includes(pid)}
+                            isWaitlisted={waitlistedIds.has(pid)}
+                            joiningWaitlist={joiningWaitlist === pid}
+                            explanation={ap.explanation ?? []}
+                            onSave={() => handleSaveProperty(pid)}
+                            onBook={property?.status === "available" ? () => { setViewingPropertyId(pid); setShowViewingModal(true); } : undefined}
+                            onWaitlist={property?.status !== "available" ? () => handleJoinWaitlist(pid) : undefined}
+                          />
+                        </div>
+                      );
+                    })() : (
+                      <p className="text-sm text-gray-400 text-center py-4">No optimal assignment found for this market cohort.</p>
+                    )}
+
+                    {/* Alternatives */}
+                    {meridianResult.alternatives?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">LP Alternatives</p>
+                        <div className="space-y-3">
+                          {meridianResult.alternatives.map((alt: any) => {
+                            const pid = alt.propertyId?.toString?.() ?? alt.propertyId;
+                            const property = properties.find((p) => p._id === pid);
+                            return (
+                              <PropertyCard
+                                key={pid}
+                                propertyId={pid}
+                                title={property?.title ?? `Property ${pid}`}
+                                location={property?.location}
+                                rent={property?.rent}
+                                bedrooms={property?.bedrooms}
+                                bathrooms={property?.bathrooms}
+                                size={property?.size}
+                                status={property?.status}
+                                images={property?.images ?? []}
+                                matchScore={alt.matchScore}
+                                rating={propertyRatings[pid]}
+                                isSaved={tenant?.savedProperties?.includes(pid)}
+                                isWaitlisted={waitlistedIds.has(pid)}
+                                joiningWaitlist={joiningWaitlist === pid}
+                                explanation={alt.explanation ?? []}
+                                onSave={() => handleSaveProperty(pid)}
+                                onBook={property?.status === "available" ? () => { setViewingPropertyId(pid); setShowViewingModal(true); } : undefined}
+                                onWaitlist={property?.status !== "available" ? () => handleJoinWaitlist(pid) : undefined}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Map view */}
+            {matchesDisplay === "map" && !fetchingMatches && properties.length > 0 && (
+              <div className="mb-2">
+                <PropertyMap
+                  properties={properties.map((p) => ({
+                    _id: p._id,
+                    title: p.title,
+                    rent: p.rent,
+                    status: p.status,
+                    matchScore: matches.find((m) => m.propertyId === p._id)?.matchScore,
+                    location: p.location,
+                  }))}
+                  onPropertyClick={(id) => {
+                    setMatchesDisplay("list");
+                    setTimeout(() => {
+                      document.getElementById(`match-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }, 100);
+                  }}
+                  height="420px"
+                />
+              </div>
+            )}
+
             {fetchingMatches && (
               <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>
             )}
@@ -882,7 +1075,7 @@ export default function TenantDashboard() {
               </div>
             )}
 
-            {matches.filter((match) => {
+            {(matchesDisplay === "list") && matches.filter((match) => {
               const property = properties.find((p) => p._id === match.propertyId);
               if (!property) return true;
               if (filters.minRent && property.rent < Number(filters.minRent)) return false;
@@ -893,8 +1086,8 @@ export default function TenantDashboard() {
             }).map((match) => {
               const property = properties.find((p) => p._id === match.propertyId);
               return (
+                <div key={match.propertyId} id={`match-${match.propertyId}`}>
                 <PropertyCard
-                  key={match.propertyId}
                   propertyId={match.propertyId}
                   title={property?.title ?? `Property ${match.propertyId}`}
                   location={property?.location}
@@ -914,6 +1107,7 @@ export default function TenantDashboard() {
                   onBook={property?.status === "available" && property ? () => { setViewingPropertyId(property._id); setShowViewingModal(true); } : undefined}
                   onWaitlist={property?.status !== "available" ? () => handleJoinWaitlist(match.propertyId) : undefined}
                 />
+                </div>
               );
             })}
           </div>

@@ -33,4 +33,20 @@ export const optimizationApi = {
     const response = await apiClient.post<ApiResponse<any>>("/optimization/test")
     return response.data
   },
+
+  getMeridianMatches: async (tenantId: string): Promise<ApiResponse<{
+    assignedProperty: any | null
+    alternatives: any[]
+    marketStats: {
+      cohortSize: number
+      propertiesEvaluated: number
+      globalObjectiveValue: number
+      yourObjectiveValue: number
+      executionTime: number
+      algorithm: "meridian"
+    }
+  }>> => {
+    const response = await apiClient.get(`/optimization/meridian/${tenantId}`)
+    return response.data
+  },
 } 
