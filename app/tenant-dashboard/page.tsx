@@ -34,6 +34,7 @@ import { useRouter } from "next/navigation";
 import { useSocket } from "@/src/hooks/useSocket";
 import { NotificationBell } from "@/components/ui/notification-bell";
 import type { Notification } from "@/components/ui/notification-bell";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { analyticsApi } from "@/src/lib/analyticsApi";
 import type { TenantAnalytics } from "@/src/lib/analyticsApi";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
@@ -607,7 +608,7 @@ export default function TenantDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <PreferencesModal
         isOpen={showPreferencesModal}
         onClose={() => setShowPreferencesModal(false)}
@@ -712,17 +713,18 @@ export default function TenantDashboard() {
       )}
 
       {/* Top nav */}
-      <header className="sticky top-0 z-40 bg-white border-b border-gray-100">
+      <header className="sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-7 h-7 bg-gray-900 rounded-lg flex items-center justify-center">
               <Home className="h-4 w-4 text-white" />
             </div>
-            <span className="font-semibold text-gray-900">RentMatch</span>
+            <span className="font-semibold text-gray-900 dark:text-white">RentMatch</span>
             <span className="text-gray-300">|</span>
             <span className="text-sm text-gray-500">Tenant</span>
           </div>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <NotificationBell
               notifications={notifications}
               onClearAll={() => setNotifications([])}

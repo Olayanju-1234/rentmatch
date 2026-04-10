@@ -10,6 +10,7 @@ import { propertiesApi } from "@/src/lib/propertiesApi"
 import { useAuth } from "@/src/context/AuthContext"
 import { useSocket } from "@/src/hooks/useSocket"
 import { NotificationBell } from "@/components/ui/notification-bell"
+import { ThemeToggle } from "@/components/ui/theme-toggle"
 import type { Notification } from "@/components/ui/notification-bell"
 import { convertBackendToFrontend } from "@/src/utils/typeConversion"
 import type { IProperty, IViewing } from "@/src/types"
@@ -611,9 +612,9 @@ export default function PropertyManagerDashboard() {
   // Property form (add / edit)
   if (showForm) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
         {/* Nav */}
-        <header className="sticky top-0 z-30 bg-white border-b border-gray-100">
+        <header className="sticky top-0 z-30 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 bg-gray-900 rounded-lg flex items-center justify-center">
@@ -910,7 +911,7 @@ export default function PropertyManagerDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Onboarding Wizard */}
       {showOnboarding && (
         <OnboardingWizard
@@ -934,7 +935,7 @@ export default function PropertyManagerDashboard() {
       )}
 
       {/* Nav */}
-      <header className="sticky top-0 z-30 bg-white border-b border-gray-100">
+      <header className="sticky top-0 z-30 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-7 h-7 bg-gray-900 rounded-lg flex items-center justify-center">
@@ -946,6 +947,7 @@ export default function PropertyManagerDashboard() {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <button
               onClick={() => setShowOnboarding(true)}
               className="flex items-center gap-1.5 bg-gray-900 hover:bg-gray-700 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors"
