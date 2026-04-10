@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { CheckCircle, ChevronRight, ChevronLeft, Home, Calendar, Rocket, X, Upload, MapPin, Bed, Bath } from "lucide-react"
+import { useState, useEffect } from "react"
+import { CheckCircle, ChevronRight, ChevronLeft, Home, Calendar, Rocket, X, Upload, MapPin, Bed, Bath, Save } from "lucide-react"
 import { propertiesApi } from "@/src/lib/propertiesApi"
 
 interface OnboardingWizardProps {
@@ -23,63 +23,96 @@ const VIEWING_SLOTS = [
   "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM",
 ]
 
+const DRAFT_KEY = "rentmatch_property_draft"
+
+const defaultPropertyData = {
+  title: "",
+  description: "",
+  address: "",
+  city: "",
+  state: "",
+  rent: "",
+  bedrooms: "1",
+  bathrooms: "1",
+  size: "",
+  amenities: [] as string[],
+  furnished: false,
+  petFriendly: false,
+  parking: false,
+  electricity: false,
+  water: false,
+  internet: false,
+}
+
 export function OnboardingWizard({ onComplete, onClose }: OnboardingWizardProps) {
   const [currentStep, setCurrentStep] = useState<Step>("property")
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState("")
+  const [draftSaved, setDraftSaved] = useState(false)
+  const [hasDraft, setHasDraft] = useState(false)
 
-  // Step 1 — property details
-  const [propertyData, setPropertyData] = useState({
-    title: "",
-    description: "",
-    address: "",
-    city: "",
-    state: "",
-    rent: "",
-    bedrooms: "1",
-    bathrooms: "1",
-    size: "",
-    amenities: [] as string[],
-    furnished: false,
-    petFriendly: false,
-    parking: false,
-    electricity: false,
-    water: false,
-    internet: false,
-  })
+  const [propertyData, setPropertyData] = useState(defaultPropertyData)
   const [images, setImages] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
 
-  // Step 2 — availability schedule
   const [availableDays, setAvailableDays] = useState<string[]>(["Monday", "Wednesday", "Saturday"])
   const [availableSlots, setAvailableSlots] = useState<string[]>(["10:00 AM", "02:00 PM"])
   const [advanceNotice, setAdvanceNotice] = useState("24")
 
   const stepIndex = STEPS.findIndex((s) => s.id === currentStep)
 
+  // Check for existing draft on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY)
+      if (raw) setHasDraft(true)
+    } catch {}
+  }, [])
+
+  const loadDraft = () => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY)
+      if (!raw) return
+      const draft = JSON.parse(raw)
+      if (draft.propertyData) setPropertyData({ ...defaultPropertyData, ...draft.propertyData })
+      if (draft.availableDays) setAvailableDays(draft.availableDays)
+      if (draft.availableSlots) setAvailableSlots(draft.availableSlots)
+      if (draft.advanceNotice) setAdvanceNotice(draft.advanceNotice)
+      setHasDraft(false)
+    } catch {}
+  }
+
+  const saveDraft = () => {
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ propertyData, availableDays, availableSlots, advanceNotice }))
+      setDraftSaved(true)
+      setTimeout(() => setDraftSaved(false), 2500)
+    } catch {}
+  }
+
+  const clearDraft = () => {
+    try { localStorage.removeItem(DRAFT_KEY) } catch {}
+  }
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     if (!files.length) return
     const newFiles = [...images, ...files].slice(0, 6)
     setImages(newFiles)
-    const urls = newFiles.map((f) => URL.createObjectURL(f))
-    setPreviews(urls)
+    setPreviews(newFiles.map((f) => URL.createObjectURL(f)))
   }
 
   const removeImage = (i: number) => {
     const newFiles = images.filter((_, idx) => idx !== i)
-    const newUrls = previews.filter((_, idx) => idx !== i)
     setImages(newFiles)
-    setPreviews(newUrls)
+    setPreviews(newFiles.map((f) => URL.createObjectURL(f)))
   }
 
   const toggleAmenity = (a: string) => {
     setPropertyData((prev) => ({
       ...prev,
-      amenities: prev.amenities.includes(a)
-        ? prev.amenities.filter((x) => x !== a)
-        : [...prev.amenities, a],
+      amenities: prev.amenities.includes(a) ? prev.amenities.filter((x) => x !== a) : [...prev.amenities, a],
     }))
   }
 
@@ -95,6 +128,7 @@ export function OnboardingWizard({ onComplete, onClose }: OnboardingWizardProps)
     if (!propertyData.title.trim()) return "Property title is required"
     if (!propertyData.address.trim()) return "Address is required"
     if (!propertyData.city.trim()) return "City is required"
+    if (!propertyData.state.trim()) return "State is required"
     if (!propertyData.rent || Number(propertyData.rent) <= 0) return "Valid rent amount is required"
     return ""
   }
@@ -146,6 +180,7 @@ export function OnboardingWizard({ onComplete, onClose }: OnboardingWizardProps)
 
       const res = await propertiesApi.create(formData)
       if (res.success) {
+        clearDraft()
         setDone(true)
       } else {
         setError(res.message || "Failed to create property")
@@ -190,6 +225,17 @@ export function OnboardingWizard({ onComplete, onClose }: OnboardingWizardProps)
           </button>
         </div>
 
+        {/* Draft restore banner */}
+        {hasDraft && (
+          <div className="mx-6 mt-4 flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            <p className="text-xs text-amber-800 font-medium">You have an unsaved draft. Want to continue where you left off?</p>
+            <div className="flex gap-2 ml-4 shrink-0">
+              <button onClick={() => setHasDraft(false)} className="text-xs text-gray-500 hover:text-gray-700">Dismiss</button>
+              <button onClick={loadDraft} className="text-xs font-semibold text-amber-700 hover:text-amber-900">Restore draft</button>
+            </div>
+          </div>
+        )}
+
         {/* Stepper */}
         <div className="flex items-center px-6 py-4 gap-0">
           {STEPS.map((step, i) => {
@@ -229,7 +275,7 @@ export function OnboardingWizard({ onComplete, onClose }: OnboardingWizardProps)
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs font-medium text-gray-500 block mb-1">Address *</label>
                   <div className="relative">
@@ -248,6 +294,15 @@ export function OnboardingWizard({ onComplete, onClose }: OnboardingWizardProps)
                     value={propertyData.city}
                     onChange={(e) => setPropertyData((p) => ({ ...p, city: e.target.value }))}
                     placeholder="e.g. Lagos"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1">State *</label>
+                  <input
+                    value={propertyData.state}
+                    onChange={(e) => setPropertyData((p) => ({ ...p, state: e.target.value }))}
+                    placeholder="e.g. Lagos State"
                     className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900"
                   />
                 </div>
@@ -448,7 +503,7 @@ export function OnboardingWizard({ onComplete, onClose }: OnboardingWizardProps)
                   <span className="text-gray-500">Title</span>
                   <span className="font-medium text-gray-900 truncate">{propertyData.title}</span>
                   <span className="text-gray-500">Location</span>
-                  <span className="font-medium text-gray-900">{propertyData.city}</span>
+                  <span className="font-medium text-gray-900">{propertyData.city}, {propertyData.state}</span>
                   <span className="text-gray-500">Rent</span>
                   <span className="font-medium text-gray-900">₦{Number(propertyData.rent || 0).toLocaleString()}/yr</span>
                   <span className="text-gray-500">Rooms</span>
@@ -492,25 +547,37 @@ export function OnboardingWizard({ onComplete, onClose }: OnboardingWizardProps)
               {currentStep === "property" ? "Cancel" : "Back"}
             </button>
 
-            {currentStep !== "live" ? (
+            <div className="flex items-center gap-2">
+              {/* Save draft button */}
               <button
                 type="button"
-                onClick={handleNext}
-                className="flex items-center gap-1.5 text-sm bg-gray-900 text-white px-5 py-2.5 rounded-xl hover:bg-gray-700 transition-colors font-medium"
+                onClick={saveDraft}
+                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 px-3 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
               >
-                Next <ChevronRight className="h-4 w-4" />
+                <Save className="h-3.5 w-3.5" />
+                {draftSaved ? "Saved!" : "Save draft"}
               </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="flex items-center gap-1.5 text-sm bg-gray-900 text-white px-5 py-2.5 rounded-xl hover:bg-gray-700 transition-colors font-medium disabled:opacity-60"
-              >
-                <Rocket className="h-4 w-4" />
-                {submitting ? "Publishing..." : "Go Live"}
-              </button>
-            )}
+
+              {currentStep !== "live" ? (
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="flex items-center gap-1.5 text-sm bg-gray-900 text-white px-5 py-2.5 rounded-xl hover:bg-gray-700 transition-colors font-medium"
+                >
+                  Next <ChevronRight className="h-4 w-4" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                  className="flex items-center gap-1.5 text-sm bg-gray-900 text-white px-5 py-2.5 rounded-xl hover:bg-gray-700 transition-colors font-medium disabled:opacity-60"
+                >
+                  <Rocket className="h-4 w-4" />
+                  {submitting ? "Publishing..." : "Go Live"}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
