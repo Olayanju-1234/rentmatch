@@ -726,7 +726,7 @@ export default function PropertyManagerDashboard() {
             {/* Details */}
             <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
               <h2 className="text-sm font-semibold text-gray-900">Property Details</h2>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1.5">Bedrooms *</label>
                   <select
@@ -837,7 +837,7 @@ export default function PropertyManagerDashboard() {
               {editingProperty && imagesToKeep.length > 0 && (
                 <div>
                   <p className="text-xs text-gray-500 mb-2">Existing photos</p>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {imagesToKeep.map((url, i) => (
                       <div key={url} className="relative group">
                         <img src={url} alt={`img-${i}`} className="w-full h-20 object-cover rounded-lg" />
@@ -869,7 +869,7 @@ export default function PropertyManagerDashboard() {
               </div>
 
               {imagePreviewUrls.length > 0 && (
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {imagePreviewUrls.map((url, i) => (
                     <div key={url} className="relative group">
                       <img src={url} alt={`new-${i}`} className="w-full h-20 object-cover rounded-lg" />
@@ -1018,7 +1018,7 @@ export default function PropertyManagerDashboard() {
         </div>
 
         {/* Tab bar */}
-        <div className="flex gap-1 overflow-x-auto scrollbar-hide mb-6 bg-white border border-gray-100 rounded-xl p-1 w-fit">
+        <div className="flex gap-1 overflow-x-auto scrollbar-hide mb-6 bg-white border border-gray-100 rounded-xl p-1 w-full">
           {TABS.map((tab) => (
             <button
               key={tab.id}
@@ -1552,7 +1552,7 @@ export default function PropertyManagerDashboard() {
             )}
 
             {/* Summary */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[
                 { label: "Total Collected", value: `₦${rentPayments.filter((r) => r.status === "paid").reduce((s: number, r: any) => s + Number(r.amount), 0).toLocaleString()}`, color: "text-green-600" },
                 { label: "Pending", value: rentPayments.filter((r) => r.status === "pending").length, color: "text-yellow-600" },
