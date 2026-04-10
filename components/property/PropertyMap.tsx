@@ -56,9 +56,8 @@ export function PropertyMap({ properties, onPropertyClick, height = "400px" }: P
     let mounted = true
 
     const init = async () => {
-      // Dynamic import to avoid SSR issues
+      // Dynamic import to avoid SSR issues (CSS imported globally in globals.css)
       const L = (await import("leaflet")).default
-      await import("leaflet/dist/leaflet.css")
 
       // Fix default icon paths (Webpack/Next.js issue)
       delete (L.Icon.Default.prototype as any)._getIconUrl
