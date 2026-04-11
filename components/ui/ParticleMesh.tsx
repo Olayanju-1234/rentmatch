@@ -16,7 +16,7 @@ export function ParticleMesh() {
     let mounted = true
 
     ;(async () => {
-      const THREE = (await import("three")).default
+      const THREE = await import("three")
       if (!mounted || !containerRef.current) return
 
       const container = containerRef.current
