@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import type { Vector3 } from "three"
 
 /**
  * Full-bleed particle mesh for hero backgrounds.
@@ -34,7 +35,7 @@ export function ParticleMesh() {
 
       const COUNT = 120
       const positions: number[] = []
-      const velocities: THREE.Vector3[] = []
+      const velocities: Vector3[] = []
 
       for (let i = 0; i < COUNT; i++) {
         const x = (Math.random() - 0.5) * 90
