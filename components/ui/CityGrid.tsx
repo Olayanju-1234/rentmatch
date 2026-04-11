@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import type { Material } from "three"
 
 /**
  * Animated top-down city block grid — abstract floor plane in perspective
@@ -37,8 +38,8 @@ export function CityGrid() {
 
       // Grid floor
       const gridHelper = new THREE.GridHelper(80, 24, 0xf59e0b, 0x1f2937)
-      ;(gridHelper.material as THREE.Material).opacity = 0.25
-      ;(gridHelper.material as THREE.Material).transparent = true
+      ;(gridHelper.material as Material).opacity = 0.25
+      ;(gridHelper.material as Material).transparent = true
       group.add(gridHelper)
 
       // Random building blocks
