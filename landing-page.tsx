@@ -9,12 +9,20 @@ import {
   Building2, Wallet, Users, TrendingUp, ChevronRight,
 } from "lucide-react"
 import { propertiesApi } from "@/src/lib/propertiesApi"
+import type { IProperty } from "@/src/types"
 
 const MatchSphere = dynamic(
   () => import("@/components/ui/MatchSphere").then((m) => m.MatchSphere),
   { ssr: false, loading: () => <div className="w-full h-full bg-transparent" /> }
 )
-import type { IProperty } from "@/src/types"
+const ParticleMesh = dynamic(
+  () => import("@/components/ui/ParticleMesh").then((m) => m.ParticleMesh),
+  { ssr: false, loading: () => null }
+)
+const CityGrid = dynamic(
+  () => import("@/components/ui/CityGrid").then((m) => m.CityGrid),
+  { ssr: false, loading: () => null }
+)
 
 // ─── Match demo data ──────────────────────────────────────────────────────────
 
@@ -255,58 +263,59 @@ export default function LandingPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-white font-sans">
+    <div className="min-h-screen bg-gray-950 font-sans">
 
       {/* ── Nav ──────────────────────────────────────────────────────────── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur border-b border-gray-100">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-gray-950/90 backdrop-blur border-b border-white/5">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center">
                 <Home className="h-4 w-4 text-white" />
               </div>
-              <span className="text-lg font-bold text-gray-900 tracking-tight">RentMatch</span>
+              <span className="text-lg font-bold text-white tracking-tight">RentMatch</span>
             </div>
             <div className="hidden md:flex items-center gap-8">
-              <a href="#how-it-works" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">How it Works</a>
-              <a href="#properties" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Properties</a>
-              <a href="#landlords" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Landlords</a>
+              <a href="#how-it-works" className="text-sm text-gray-400 hover:text-white transition-colors">How it Works</a>
+              <a href="#properties" className="text-sm text-gray-400 hover:text-white transition-colors">Properties</a>
+              <a href="#landlords" className="text-sm text-gray-400 hover:text-white transition-colors">Landlords</a>
             </div>
             <div className="hidden md:flex items-center gap-3">
               <button
                 onClick={() => router.push("/auth-pages?mode=login")}
-                className="text-sm text-gray-600 hover:text-gray-900 px-4 py-2 transition-colors"
+                className="text-sm text-gray-400 hover:text-white px-4 py-2 transition-colors"
               >
                 Sign In
               </button>
               <button
                 onClick={() => router.push("/auth-pages?mode=signup")}
-                className="text-sm font-semibold bg-gray-900 text-white px-4 py-2.5 rounded-lg hover:bg-gray-700 transition-colors"
+                className="text-sm font-semibold bg-amber-500 text-white px-4 py-2.5 rounded-lg hover:bg-amber-400 transition-colors"
               >
                 Get Started
               </button>
             </div>
-            <button className="md:hidden p-2" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+            <button className="md:hidden p-2 text-white" onClick={() => setIsMenuOpen(!isMenuOpen)}>
               {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </div>
         {isMenuOpen && (
-          <div className="md:hidden bg-white border-t border-gray-100 px-4 py-4 space-y-3">
-            <a href="#how-it-works" onClick={() => setIsMenuOpen(false)} className="block text-sm text-gray-600 py-2">How it Works</a>
-            <a href="#properties" onClick={() => setIsMenuOpen(false)} className="block text-sm text-gray-600 py-2">Properties</a>
-            <a href="#landlords" onClick={() => setIsMenuOpen(false)} className="block text-sm text-gray-600 py-2">Landlords</a>
+          <div className="md:hidden bg-gray-950 border-t border-white/5 px-4 py-4 space-y-3">
+            <a href="#how-it-works" onClick={() => setIsMenuOpen(false)} className="block text-sm text-gray-400 py-2">How it Works</a>
+            <a href="#properties" onClick={() => setIsMenuOpen(false)} className="block text-sm text-gray-400 py-2">Properties</a>
+            <a href="#landlords" onClick={() => setIsMenuOpen(false)} className="block text-sm text-gray-400 py-2">Landlords</a>
             <div className="pt-2 space-y-2">
-              <button onClick={() => { setIsMenuOpen(false); router.push("/auth-pages?mode=login") }} className="w-full text-sm text-gray-700 border border-gray-200 px-4 py-2.5 rounded-lg">Sign In</button>
-              <button onClick={() => { setIsMenuOpen(false); router.push("/auth-pages?mode=signup") }} className="w-full text-sm font-semibold bg-gray-900 text-white px-4 py-2.5 rounded-lg">Get Started</button>
+              <button onClick={() => { setIsMenuOpen(false); router.push("/auth-pages?mode=login") }} className="w-full text-sm text-gray-300 border border-white/10 px-4 py-2.5 rounded-lg">Sign In</button>
+              <button onClick={() => { setIsMenuOpen(false); router.push("/auth-pages?mode=signup") }} className="w-full text-sm font-semibold bg-amber-500 text-white px-4 py-2.5 rounded-lg">Get Started</button>
             </div>
           </div>
         )}
       </nav>
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="pt-16 bg-gray-950 text-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
+      <section className="pt-16 bg-gray-950 text-white relative overflow-hidden">
+        <ParticleMesh />
+        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
               <p className="text-amber-500 text-sm font-semibold mb-5 tracking-wide">
@@ -397,14 +406,14 @@ export default function LandingPage() {
       </section>
 
       {/* ── How it works ─────────────────────────────────────────────────── */}
-      <section id="how-it-works" className="py-28 bg-white">
+      <section id="how-it-works" className="py-28 bg-gray-900 border-t border-white/5">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-20 items-center">
             <div>
-              <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 leading-tight mb-6">
+              <h2 className="text-4xl lg:text-5xl font-bold text-white leading-tight mb-6">
                 From preferences<br />to move-in.
               </h2>
-              <p className="text-gray-500 text-lg leading-relaxed mb-12">
+              <p className="text-gray-400 text-lg leading-relaxed mb-12">
                 No 200-result scrollfest. No calling landlords who've already let the property. Just ranked matches — highest score first.
               </p>
               <div className="space-y-10">
@@ -426,9 +435,9 @@ export default function LandingPage() {
                   },
                 ].map((s) => (
                   <div key={s.n} className="flex gap-6">
-                    <span className="text-4xl font-black text-gray-100 leading-none shrink-0 select-none w-12">{s.n}</span>
+                    <span className="text-4xl font-black text-white/10 leading-none shrink-0 select-none w-12">{s.n}</span>
                     <div>
-                      <h3 className="font-bold text-gray-900 mb-1.5">{s.title}</h3>
+                      <h3 className="font-bold text-white mb-1.5">{s.title}</h3>
                       <p className="text-gray-500 text-sm leading-relaxed">{s.desc}</p>
                     </div>
                   </div>
@@ -459,11 +468,11 @@ export default function LandingPage() {
                   desc: "See exactly why a property scored the way it did against your criteria.",
                 },
               ].map((f, i) => (
-                <div key={i} className="p-5 border border-gray-100 rounded-2xl hover:border-gray-200 transition-colors">
-                  <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center mb-4">
-                    <f.icon className="h-5 w-5 text-gray-700" />
+                <div key={i} className="p-5 border border-white/8 rounded-2xl hover:border-white/15 transition-colors bg-white/3">
+                  <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center mb-4">
+                    <f.icon className="h-5 w-5 text-amber-400" />
                   </div>
-                  <h3 className="font-semibold text-gray-900 text-sm mb-1.5">{f.title}</h3>
+                  <h3 className="font-semibold text-white text-sm mb-1.5">{f.title}</h3>
                   <p className="text-xs text-gray-500 leading-relaxed">{f.desc}</p>
                 </div>
               ))}
@@ -476,16 +485,16 @@ export default function LandingPage() {
       <MatchDemo />
 
       {/* ── Featured Properties ───────────────────────────────────────────── */}
-      <section id="properties" className="py-28 bg-gray-50">
+      <section id="properties" className="py-28 bg-gray-950 border-t border-white/5">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-end justify-between mb-12">
             <div>
-              <p className="text-amber-600 text-sm font-semibold mb-2">Live listings</p>
-              <h2 className="text-3xl font-bold text-gray-900">Properties on the platform</h2>
+              <p className="text-amber-500 text-sm font-semibold mb-2">Live listings</p>
+              <h2 className="text-3xl font-bold text-white">Properties on the platform</h2>
             </div>
             <button
               onClick={() => router.push("/auth-pages?mode=signup")}
-              className="hidden md:flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+              className="hidden md:flex items-center gap-1.5 text-sm font-medium text-gray-400 hover:text-white transition-colors"
             >
               See all <ArrowRight className="h-4 w-4" />
             </button>
@@ -494,11 +503,11 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-3 gap-6">
             {loading ? (
               Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="bg-white rounded-2xl overflow-hidden animate-pulse">
-                  <div className="h-48 bg-gray-100" />
+                <div key={i} className="bg-white/5 rounded-2xl overflow-hidden animate-pulse">
+                  <div className="h-48 bg-white/5" />
                   <div className="p-4 space-y-3">
-                    <div className="h-4 bg-gray-100 rounded w-3/4" />
-                    <div className="h-3 bg-gray-100 rounded w-1/2" />
+                    <div className="h-4 bg-white/5 rounded w-3/4" />
+                    <div className="h-3 bg-white/5 rounded w-1/2" />
                   </div>
                 </div>
               ))
@@ -507,7 +516,7 @@ export default function LandingPage() {
                 <div
                   key={p._id || i}
                   onClick={() => router.push("/auth-pages?mode=signup")}
-                  className="bg-white rounded-2xl overflow-hidden hover:shadow-lg transition-all cursor-pointer group border border-gray-100"
+                  className="bg-white/5 rounded-2xl overflow-hidden hover:bg-white/8 transition-all cursor-pointer group border border-white/8"
                 >
                   <div className="relative overflow-hidden h-48">
                     <img
@@ -516,29 +525,29 @@ export default function LandingPage() {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-                    <div className="absolute top-3 left-3 bg-white text-gray-800 text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">
+                    <div className="absolute top-3 left-3 bg-black/50 text-white text-xs font-bold px-2.5 py-1 rounded-full backdrop-blur-sm">
                       {p.bedrooms}bd · {p.bathrooms}ba
                     </div>
                   </div>
                   <div className="p-4">
-                    <h3 className="font-semibold text-gray-900 mb-1 truncate">{p.title}</h3>
-                    <div className="flex items-center gap-1 text-gray-400 text-xs mb-3">
+                    <h3 className="font-semibold text-white mb-1 truncate">{p.title}</h3>
+                    <div className="flex items-center gap-1 text-gray-500 text-xs mb-3">
                       <MapPin className="h-3 w-3" />
                       {p.location?.city}, {p.location?.state}
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-gray-900">
+                      <span className="font-bold text-white">
                         ₦{p.rent?.toLocaleString()}
-                        <span className="text-xs font-normal text-gray-400">/yr</span>
+                        <span className="text-xs font-normal text-gray-500">/yr</span>
                       </span>
-                      <span className="text-xs text-gray-400 flex items-center gap-0.5">
+                      <span className="text-xs text-gray-500 flex items-center gap-0.5">
                         View <ChevronRight className="h-3 w-3" />
                       </span>
                     </div>
                     {p.amenities && p.amenities.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-3">
                         {p.amenities.slice(0, 3).map((a, j) => (
-                          <span key={j} className="text-[11px] bg-gray-50 text-gray-400 px-2 py-0.5 rounded-full">{a}</span>
+                          <span key={j} className="text-[11px] bg-white/5 text-gray-500 px-2 py-0.5 rounded-full">{a}</span>
                         ))}
                       </div>
                     )}
@@ -546,15 +555,16 @@ export default function LandingPage() {
                 </div>
               ))
             ) : (
-              <div className="col-span-3 text-center py-16 text-gray-400 text-sm">No listings available right now.</div>
+              <div className="col-span-3 text-center py-16 text-gray-600 text-sm">No listings available right now.</div>
             )}
           </div>
         </div>
       </section>
 
       {/* ── For Landlords ─────────────────────────────────────────────────── */}
-      <section id="landlords" className="py-28 bg-gray-950 text-white">
-        <div ref={landlordRef} className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="landlords" className="py-28 bg-gray-900 border-t border-white/5 text-white relative overflow-hidden">
+        <CityGrid />
+        <div ref={landlordRef} className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
               <p className="text-amber-500 text-sm font-semibold mb-5">For landlords</p>
@@ -608,9 +618,9 @@ export default function LandingPage() {
       </section>
 
       {/* ── CTA ──────────────────────────────────────────────────────────── */}
-      <section className="py-28 bg-white border-t border-gray-100">
+      <section className="py-28 bg-gray-950 border-t border-white/5">
         <div ref={ctaRef} className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl lg:text-6xl font-bold text-gray-900 leading-tight mb-6">
+          <h2 className="text-4xl lg:text-6xl font-bold text-white leading-tight mb-6">
             Your next home<br />is already on here.
           </h2>
           <p className="text-gray-500 text-lg mb-10 max-w-lg mx-auto">
@@ -619,13 +629,13 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
               onClick={() => router.push("/auth-pages?mode=signup")}
-              className="flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-700 text-white font-semibold px-8 py-4 rounded-xl transition-colors"
+              className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-white font-semibold px-8 py-4 rounded-xl transition-colors"
             >
               Start as Tenant — Free <ArrowRight className="h-4 w-4" />
             </button>
             <button
               onClick={() => router.push("/auth-pages?mode=signup")}
-              className="flex items-center justify-center gap-2 border border-gray-200 text-gray-700 font-medium px-8 py-4 rounded-xl hover:border-gray-400 transition-colors"
+              className="flex items-center justify-center gap-2 border border-white/10 text-gray-300 font-medium px-8 py-4 rounded-xl hover:border-white/25 transition-colors"
             >
               List Your Property
             </button>
@@ -644,7 +654,7 @@ export default function LandingPage() {
                 </div>
                 <span className="text-white font-bold">RentMatch</span>
               </div>
-              <p className="text-sm text-gray-600 leading-relaxed">Algorithmic property matching for Nigeria's rental market.</p>
+              <p className="text-sm text-gray-500 leading-relaxed">Algorithmic property matching for Nigeria's rental market.</p>
             </div>
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Platform</p>
