@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import {
   Home, MapPin, ArrowRight, Menu, X,
@@ -8,6 +9,11 @@ import {
   Building2, Wallet, Users, TrendingUp, ChevronRight,
 } from "lucide-react"
 import { propertiesApi } from "@/src/lib/propertiesApi"
+
+const MatchSphere = dynamic(
+  () => import("@/components/ui/MatchSphere").then((m) => m.MatchSphere),
+  { ssr: false, loading: () => <div className="w-full h-full bg-transparent" /> }
+)
 import type { IProperty } from "@/src/types"
 
 // ─── Match demo data ──────────────────────────────────────────────────────────
@@ -39,36 +45,41 @@ function MatchDemo() {
   const [bedrooms, setBedrooms] = useState(2)
   const [city, setCity] = useState("Lekki")
   const [amenities, setAmenities] = useState<string[]>(["wifi", "parking"])
+  const [activeIdx, setActiveIdx] = useState(0)
 
   const results = MOCK_PROPERTIES
     .map((p) => ({ ...p, score: calcMatchScore({ budget, bedrooms, city, amenities }, p) }))
     .sort((a, b) => b.score - a.score)
 
+  const topScore = results[activeIdx]?.score ?? results[0]?.score ?? 0
+
   const toggleAmenity = (a: string) =>
     setAmenities((prev) => prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a])
 
+  const scoreLabel = topScore >= 70 ? "Strong match" : topScore >= 45 ? "Partial match" : "Weak match"
+  const scoreLabelColor = topScore >= 70 ? "text-amber-500" : topScore >= 45 ? "text-gray-500" : "text-gray-400"
+
   return (
-    <section className="py-28 bg-white border-t border-gray-100">
+    <section className="py-28 bg-gray-950 border-t border-white/5">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-14">
-          <p className="text-amber-600 text-sm font-semibold mb-3">No sign-up required</p>
-          <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 leading-tight max-w-xl">
+        <div className="mb-16">
+          <p className="text-amber-500 text-sm font-semibold mb-3">No sign-up required</p>
+          <h2 className="text-4xl lg:text-5xl font-bold text-white leading-tight max-w-xl">
             Try the algorithm.<br />Right now.
           </h2>
-          <p className="text-gray-500 mt-4 max-w-md">
-            Adjust your preferences and watch the match scores update in real time. This is exactly what happens when you sign up.
+          <p className="text-gray-500 mt-4 max-w-md text-sm">
+            Adjust your preferences. The sphere morphs and scores update in real time — this is exactly what Meridian runs when you sign up.
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-10 items-start">
+        <div className="grid lg:grid-cols-3 gap-10 items-start">
           {/* Controls */}
           <div className="space-y-6">
             <div>
               <div className="flex items-center justify-between mb-3">
-                <label className="text-sm font-semibold text-gray-900">Yearly Budget</label>
-                <span className="text-sm font-bold text-amber-600 tabular-nums">
-                  ₦{budget.toLocaleString()}
-                  <span className="text-gray-400 font-normal"> /yr</span>
+                <label className="text-sm font-semibold text-gray-300">Yearly Budget</label>
+                <span className="text-sm font-bold text-amber-400 tabular-nums">
+                  ₦{budget.toLocaleString()}<span className="text-gray-500 font-normal">/yr</span>
                 </span>
               </div>
               <input
@@ -78,19 +89,19 @@ function MatchDemo() {
                 onChange={(e) => setBudget(Number(e.target.value))}
                 className="w-full accent-amber-500 cursor-pointer"
               />
-              <div className="flex justify-between text-xs text-gray-400 mt-1.5">
+              <div className="flex justify-between text-xs text-gray-600 mt-1.5">
                 <span>₦300k</span><span>₦5M</span>
               </div>
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-gray-900 block mb-3">Bedrooms</label>
+              <label className="text-sm font-semibold text-gray-300 block mb-3">Bedrooms</label>
               <div className="flex gap-2">
                 {[1, 2, 3, 4].map((n) => (
                   <button
                     key={n}
                     onClick={() => setBedrooms(n)}
-                    className={`flex-1 py-2.5 rounded-lg text-sm font-semibold border transition-all ${bedrooms === n ? "bg-gray-900 text-white border-gray-900" : "border-gray-200 text-gray-500 hover:border-gray-400"}`}
+                    className={`flex-1 py-2.5 rounded-lg text-sm font-semibold border transition-all ${bedrooms === n ? "bg-white text-gray-900 border-white" : "border-white/10 text-gray-400 hover:border-white/30"}`}
                   >
                     {n}
                   </button>
@@ -99,13 +110,13 @@ function MatchDemo() {
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-gray-900 block mb-3">Area</label>
+              <label className="text-sm font-semibold text-gray-300 block mb-3">Area</label>
               <div className="flex flex-wrap gap-2">
                 {["Lekki", "Yaba", "Ajah", "Ikeja", "Victoria Island"].map((c) => (
                   <button
                     key={c}
                     onClick={() => setCity(c)}
-                    className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-all ${city === c ? "bg-amber-500 text-white border-amber-500" : "border-gray-200 text-gray-500 hover:border-gray-400"}`}
+                    className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-all ${city === c ? "bg-amber-500 text-white border-amber-500" : "border-white/10 text-gray-400 hover:border-white/30"}`}
                   >
                     {c}
                   </button>
@@ -114,13 +125,13 @@ function MatchDemo() {
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-gray-900 block mb-3">Must-haves</label>
+              <label className="text-sm font-semibold text-gray-300 block mb-3">Must-haves</label>
               <div className="flex flex-wrap gap-2">
                 {[["wifi", "WiFi"], ["parking", "Parking"], ["security", "Security"], ["generator", "Generator"]].map(([id, label]) => (
                   <button
                     key={id}
                     onClick={() => toggleAmenity(id)}
-                    className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-all ${amenities.includes(id) ? "bg-gray-900 text-white border-gray-900" : "border-gray-200 text-gray-500 hover:border-gray-400"}`}
+                    className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-all ${amenities.includes(id) ? "bg-white/10 text-white border-white/20" : "border-white/10 text-gray-400 hover:border-white/30"}`}
                   >
                     {label}
                   </button>
@@ -129,37 +140,53 @@ function MatchDemo() {
             </div>
           </div>
 
-          {/* Results */}
+          {/* Sphere */}
+          <div className="flex flex-col items-center justify-center">
+            <div className="w-56 h-56 lg:w-72 lg:h-72 relative">
+              <MatchSphere score={topScore} />
+            </div>
+            <div className="text-center mt-4">
+              <p className={`text-4xl font-black tabular-nums ${topScore >= 70 ? "text-amber-400" : topScore >= 45 ? "text-gray-400" : "text-gray-600"}`}>
+                {topScore}%
+              </p>
+              <p className={`text-xs font-semibold mt-1 ${scoreLabelColor}`}>{scoreLabel}</p>
+              <p className="text-xs text-gray-600 mt-1">{results[activeIdx]?.title ?? results[0]?.title}</p>
+            </div>
+          </div>
+
+          {/* Results list */}
           <div className="space-y-2">
             {results.map((p, i) => {
-              const color = p.score >= 70 ? "bg-amber-500" : p.score >= 45 ? "bg-gray-400" : "bg-gray-200"
-              const textColor = p.score >= 70 ? "text-amber-600" : p.score >= 45 ? "text-gray-500" : "text-gray-400"
+              const isActive = i === activeIdx
+              const textColor = p.score >= 70 ? "text-amber-400" : p.score >= 45 ? "text-gray-400" : "text-gray-600"
+              const barColor  = p.score >= 70 ? "bg-amber-500" : p.score >= 45 ? "bg-gray-500" : "bg-gray-700"
               return (
-                <div
+                <button
                   key={p.id}
-                  className={`flex items-center gap-4 p-4 rounded-xl border transition-all duration-300 ${i === 0 ? "border-amber-200 bg-amber-50/50" : "border-gray-100 bg-white"}`}
+                  onClick={() => setActiveIdx(i)}
+                  className={`w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all duration-200 ${isActive ? "border-white/20 bg-white/5" : "border-white/5 hover:border-white/10"}`}
                 >
-                  <span className={`text-xs font-bold w-5 shrink-0 ${i === 0 ? "text-amber-600" : "text-gray-300"}`}>
-                    #{i + 1}
+                  <span className={`text-xs font-bold w-4 shrink-0 ${isActive ? "text-amber-400" : "text-gray-600"}`}>
+                    {i + 1}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{p.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">₦{p.rent.toLocaleString()}/yr · {p.bedrooms} bed</p>
-                    <div className="mt-2.5 h-1 bg-gray-100 rounded-full overflow-hidden">
+                    <p className="text-xs font-semibold text-gray-200 truncate">{p.title}</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5">₦{p.rent.toLocaleString()}/yr · {p.bedrooms}bd</p>
+                    <div className="mt-2 h-0.5 bg-white/5 rounded-full overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all duration-500 ${color}`}
+                        className={`h-full rounded-full transition-all duration-500 ${barColor}`}
                         style={{ width: `${p.score}%` }}
                       />
                     </div>
                   </div>
-                  <span className={`text-sm font-bold shrink-0 tabular-nums ${textColor}`}>
+                  <span className={`text-xs font-black shrink-0 tabular-nums ${textColor}`}>
                     {p.score}%
                   </span>
-                </div>
+                </button>
               )
             })}
-            <p className="text-xs text-gray-400 pt-2 text-center">
-              Scores update as you adjust preferences above
+            <p className="text-[11px] text-gray-700 pt-1 text-center">
+              Click a property to inspect its match score
             </p>
           </div>
         </div>
@@ -204,6 +231,19 @@ export default function LandingPage() {
   const featuresRef = useScrollReveal()
   const landlordRef = useScrollReveal()
   const ctaRef = useScrollReveal()
+  const heroHeadRef = useRef<HTMLHeadingElement>(null)
+  const heroSubRef  = useRef<HTMLParagraphElement>(null)
+  const heroCTARef  = useRef<HTMLDivElement>(null)
+
+  // GSAP hero entrance
+  useEffect(() => {
+    import("gsap").then(({ gsap }) => {
+      const tl = gsap.timeline({ defaults: { ease: "power3.out" } })
+      tl.fromTo(heroHeadRef.current, { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.9 })
+        .fromTo(heroSubRef.current,  { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7 }, "-=0.5")
+        .fromTo(heroCTARef.current,  { y: 16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6 }, "-=0.4")
+    })
+  }, [])
 
   useEffect(() => {
     propertiesApi.getRandom(3).then((res) => {
@@ -272,15 +312,15 @@ export default function LandingPage() {
               <p className="text-amber-500 text-sm font-semibold mb-5 tracking-wide">
                 Smart matching for Nigeria's rental market
               </p>
-              <h1 className="text-5xl lg:text-7xl font-bold leading-[1.02] tracking-tight mb-7">
+              <h1 ref={heroHeadRef} className="text-5xl lg:text-7xl font-bold leading-[1.02] tracking-tight mb-7">
                 Stop scrolling.<br />
                 Start<br />
                 <span className="text-amber-400">matching.</span>
               </h1>
-              <p className="text-gray-400 text-lg leading-relaxed mb-10 max-w-md">
+              <p ref={heroSubRef} className="text-gray-400 text-lg leading-relaxed mb-10 max-w-md">
                 Set your preferences once. Every property in our database is scored and ranked against your budget, location, and lifestyle — you only see homes worth your time.
               </p>
-              <div className="flex flex-col sm:flex-row gap-3 mb-10">
+              <div ref={heroCTARef} className="flex flex-col sm:flex-row gap-3 mb-10">
                 <button
                   onClick={() => router.push("/auth-pages?mode=signup")}
                   className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-white font-semibold px-6 py-3.5 rounded-xl transition-colors"
