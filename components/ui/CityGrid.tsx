@@ -3,10 +3,6 @@
 import { useEffect, useRef } from "react"
 import type { Material } from "three"
 
-/**
- * Animated top-down city block grid — abstract floor plane in perspective
- * that slowly drifts. Used as a background behind the landlord section.
- */
 export function CityGrid() {
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -29,34 +25,35 @@ export function CityGrid() {
       container.appendChild(renderer.domElement)
 
       const scene  = new THREE.Scene()
-      const camera = new THREE.PerspectiveCamera(55, W / H, 0.1, 500)
-      camera.position.set(0, 28, 28)
+      const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 500)
+      camera.position.set(0, 32, 36)
       camera.lookAt(0, 0, 0)
 
       const group = new THREE.Group()
       scene.add(group)
 
-      // Grid floor
-      const gridHelper = new THREE.GridHelper(80, 24, 0xf59e0b, 0x1f2937)
-      ;(gridHelper.material as Material).opacity = 0.25
-      ;(gridHelper.material as Material).transparent = true
+      // Grid floor — use a single color to avoid array material issue
+      const gridHelper = new THREE.GridHelper(100, 20, 0xf59e0b, 0xf59e0b)
+      const gridMat = gridHelper.material as Material
+      gridMat.opacity = 0.18
+      gridMat.transparent = true
       group.add(gridHelper)
 
-      // Random building blocks
+      // Building wireframes
       const buildingMat = new THREE.MeshBasicMaterial({
         color: 0xf59e0b,
         transparent: true,
-        opacity: 0.06,
+        opacity: 0.35,
         wireframe: true,
       })
 
-      const GRID = 8
-      const SPACING = 7
+      const GRID = 10
+      const SPACING = 6
       for (let x = -GRID / 2; x < GRID / 2; x++) {
         for (let z = -GRID / 2; z < GRID / 2; z++) {
-          if (Math.random() < 0.45) continue // sparse
-          const h = Math.random() * 5 + 1
-          const w = Math.random() * 2.5 + 1
+          if (Math.random() < 0.4) continue
+          const h = Math.random() * 8 + 1.5
+          const w = Math.random() * 2 + 1
           const geo  = new THREE.BoxGeometry(w, h, w)
           const mesh = new THREE.Mesh(geo, buildingMat)
           mesh.position.set(
@@ -72,10 +69,9 @@ export function CityGrid() {
       const loop = () => {
         if (!mounted) return
         animId = requestAnimationFrame(loop)
-        t += 0.004
-        group.rotation.y = t * 0.12
-        // Subtle camera bob
-        camera.position.y = 28 + Math.sin(t * 0.4) * 1.5
+        t += 0.003
+        group.rotation.y = t * 0.1
+        camera.position.y = 32 + Math.sin(t * 0.35) * 2
         camera.lookAt(0, 0, 0)
         renderer.render(scene, camera)
       }
