@@ -42,6 +42,11 @@ import {
   LogOut,
   Settings,
   User,
+  AlertTriangle,
+  FileText,
+  ChevronDown,
+  ChevronUp,
+  Printer,
 } from "lucide-react"
 import { paymentsApi } from "@/src/lib/paymentsApi"
 import type { PropertyReview } from "@/src/lib/paymentsApi"
@@ -49,6 +54,8 @@ import { optimizationApi } from "@/src/lib/optimizationApi"
 import { communicationApi } from "@/src/lib/communicationApi"
 import { analyticsApi } from "@/src/lib/analyticsApi"
 import type { LandlordAnalytics } from "@/src/lib/analyticsApi"
+import { insightsApi } from "@/src/lib/insightsApi"
+import type { TenantReadiness, ViewingConflict, LeaseMeta } from "@/src/lib/insightsApi"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
 
 function getUserId(user: { _id?: string; id?: string }): string | undefined {
@@ -151,6 +158,18 @@ export default function PropertyManagerDashboard() {
   const [rentPayments, setRentPayments] = useState<any[]>([])
   const [showRentForm, setShowRentForm] = useState(false)
   const [rentFormData, setRentFormData] = useState({ propertyId: "", tenantName: "", amount: "", month: "", notes: "", status: "paid" as "paid" | "pending" | "late" })
+
+  // Insights
+  const [readinessCache, setReadinessCache] = useState<Record<string, TenantReadiness>>({})
+  const [loadingReadiness, setLoadingReadiness] = useState<Record<string, boolean>>({})
+  const [expandedReadiness, setExpandedReadiness] = useState<Record<string, boolean>>({})
+  const [conflictsCache, setConflictsCache] = useState<Record<string, ViewingConflict[]>>({})
+  // Lease modal
+  const [showLeaseModal, setShowLeaseModal] = useState(false)
+  const [leaseForm, setLeaseForm] = useState({ propertyId: "", tenantUserId: "", startDate: "", endDate: "", rentAmount: "", depositAmount: "" })
+  const [generatingLease, setGeneratingLease] = useState(false)
+  const [leaseText, setLeaseText] = useState<string | null>(null)
+  const [leaseMeta, setLeaseMeta] = useState<LeaseMeta | null>(null)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -355,6 +374,12 @@ export default function PropertyManagerDashboard() {
       loadConnectStatus()
     }
   }, [activeTab])
+
+  useEffect(() => {
+    if (activeTab === "tenants" && tenantsSubTab === "viewings" && properties.length) {
+      properties.forEach((p) => fetchConflictsForProperty(p._id.toString()))
+    }
+  }, [activeTab, tenantsSubTab, properties.length])
 
   async function fetchProperties(landlordIdParam?: string) {
     const landlordId = landlordIdParam || getUserId(user || {})
@@ -562,6 +587,72 @@ export default function PropertyManagerDashboard() {
       URL.revokeObjectURL(prev[index])
       return prev.filter((_, i) => i !== index)
     })
+  }
+
+  async function fetchReadiness(tenantUserId: string) {
+    if (readinessCache[tenantUserId] || loadingReadiness[tenantUserId]) return
+    setLoadingReadiness((prev) => ({ ...prev, [tenantUserId]: true }))
+    try {
+      const res = await insightsApi.getTenantReadiness(tenantUserId)
+      if (res.success && res.data) setReadinessCache((prev) => ({ ...prev, [tenantUserId]: res.data! }))
+    } catch {}
+    finally { setLoadingReadiness((prev) => ({ ...prev, [tenantUserId]: false })) }
+  }
+
+  async function fetchConflictsForProperty(propertyId: string) {
+    if (conflictsCache[propertyId] !== undefined) return
+    try {
+      const res = await insightsApi.getViewingConflicts(propertyId)
+      if (res.success && res.data) {
+        setConflictsCache((prev) => ({ ...prev, [propertyId]: res.data!.conflicts }))
+      } else {
+        setConflictsCache((prev) => ({ ...prev, [propertyId]: [] }))
+      }
+    } catch {
+      setConflictsCache((prev) => ({ ...prev, [propertyId]: [] }))
+    }
+  }
+
+  async function handleGenerateLease() {
+    if (!leaseForm.propertyId || !leaseForm.tenantUserId || !leaseForm.startDate || !leaseForm.endDate || !leaseForm.rentAmount) {
+      showToast("error", "Fill all required fields.")
+      return
+    }
+    setGeneratingLease(true)
+    try {
+      const res = await insightsApi.generateLease({
+        propertyId: leaseForm.propertyId,
+        tenantUserId: leaseForm.tenantUserId,
+        startDate: leaseForm.startDate,
+        endDate: leaseForm.endDate,
+        rentAmount: Number(leaseForm.rentAmount),
+        depositAmount: leaseForm.depositAmount ? Number(leaseForm.depositAmount) : undefined,
+      })
+      if (res.success && res.data) {
+        setLeaseText(res.data.leaseText)
+        setLeaseMeta(res.data.meta)
+      } else {
+        showToast("error", res.message || "Failed to generate lease.")
+      }
+    } catch {
+      showToast("error", "Failed to generate lease.")
+    } finally {
+      setGeneratingLease(false)
+    }
+  }
+
+  function handlePrintLease() {
+    if (!leaseText) return
+    const win = window.open("", "_blank")
+    if (!win) return
+    win.document.write(`<!DOCTYPE html><html><head><title>Lease Agreement</title><style>
+      body { font-family: Georgia, serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.7; color: #111; }
+      pre { white-space: pre-wrap; font-family: Georgia, serif; font-size: 14px; }
+      @media print { body { margin: 20px; } }
+    </style></head><body><pre>${leaseText.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre></body></html>`)
+    win.document.close()
+    win.focus()
+    win.print()
   }
 
   // Computed stats
@@ -1172,8 +1263,16 @@ export default function PropertyManagerDashboard() {
             {/* Matches sub-panel */}
             {tenantsSubTab === "matches" && (
               <div className="bg-white rounded-xl border border-gray-100 p-5">
-                <h2 className="text-sm font-semibold text-gray-900 mb-1">Top Tenant Matches</h2>
-                <p className="text-xs text-gray-500 mb-4">Tenants whose preferences align with your listings.</p>
+                <div className="flex items-center justify-between mb-1">
+                  <h2 className="text-sm font-semibold text-gray-900">Top Tenant Matches</h2>
+                  <button
+                    onClick={() => { setLeaseText(null); setLeaseMeta(null); setLeaseForm({ propertyId: "", tenantUserId: "", startDate: "", endDate: "", rentAmount: "", depositAmount: "" }); setShowLeaseModal(true) }}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  >
+                    <FileText className="h-3.5 w-3.5" /> Generate Lease
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mb-4">Tenants whose preferences align with your listings. Click <strong>Check Score</strong> to see their readiness.</p>
                 {loadingMatches ? (
                   <div className="flex justify-center h-32 items-center">
                     <div className="w-5 h-5 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
@@ -1186,21 +1285,68 @@ export default function PropertyManagerDashboard() {
                       <div key={mg.property._id}>
                         <h3 className="text-sm font-semibold text-gray-700 mb-2">{mg.property.title}</h3>
                         <div className="space-y-2">
-                          {mg.matches.map((m: any) => (
-                            <div key={m.tenant._id} className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl">
-                              <div>
-                                <p className="text-sm font-medium text-gray-900">{m.tenant.name}</p>
-                                <p className="text-xs text-gray-500">{m.preferencesSummary}</p>
+                          {mg.matches.map((m: any) => {
+                            const tid = m.tenant._id?.toString()
+                            const readiness = tid ? readinessCache[tid] : undefined
+                            const loadingR = tid ? loadingReadiness[tid] : false
+                            const expanded = tid ? expandedReadiness[tid] : false
+                            return (
+                              <div key={m.tenant._id} className="bg-gray-50 rounded-xl overflow-hidden">
+                                <div className="flex items-center justify-between px-4 py-3">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-gray-900">{m.tenant.name}</p>
+                                    <p className="text-xs text-gray-500">{m.preferencesSummary}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                                      m.matchScore >= 75 ? "bg-emerald-100 text-emerald-700" :
+                                      m.matchScore >= 50 ? "bg-amber-100 text-amber-700" :
+                                      "bg-gray-100 text-gray-600"
+                                    }`}>
+                                      {m.matchScore}% match
+                                    </span>
+                                    {readiness ? (
+                                      <button
+                                        onClick={() => tid && setExpandedReadiness((prev) => ({ ...prev, [tid]: !prev[tid] }))}
+                                        className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-semibold ${
+                                          readiness.score >= 70 ? "bg-emerald-100 text-emerald-700" :
+                                          readiness.score >= 40 ? "bg-amber-100 text-amber-700" :
+                                          "bg-red-100 text-red-600"
+                                        }`}
+                                      >
+                                        {readiness.score}/100 {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                                      </button>
+                                    ) : (
+                                      <button
+                                        disabled={loadingR}
+                                        onClick={() => tid && fetchReadiness(tid)}
+                                        className="flex items-center gap-1 text-xs px-2.5 py-1 border border-gray-200 rounded-lg text-gray-600 hover:border-gray-300 disabled:opacity-50 transition-colors"
+                                      >
+                                        {loadingR ? <div className="w-3 h-3 border border-gray-300 border-t-gray-600 rounded-full animate-spin" /> : null}
+                                        Check Score
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                                {readiness && expanded && (
+                                  <div className="px-4 pb-4 border-t border-gray-100 pt-3">
+                                    <p className="text-xs font-medium text-gray-700 mb-2">Readiness: <span className={readiness.score >= 70 ? "text-emerald-600" : readiness.score >= 40 ? "text-amber-600" : "text-red-600"}>{readiness.label}</span></p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      {Object.entries(readiness.breakdown).map(([key, item]) => (
+                                        <div key={key} className="flex items-start justify-between gap-2 bg-white rounded-lg p-2 border border-gray-100">
+                                          <span className="text-xs text-gray-500 capitalize leading-tight">{key.replace(/([A-Z])/g, " $1").trim()}</span>
+                                          <div className="text-right shrink-0">
+                                            <span className={`text-xs font-semibold ${item.score >= 0 ? "text-gray-900" : "text-red-600"}`}>{item.score > 0 ? `+${item.score}` : item.score}/{item.max}</span>
+                                            {item.note && <p className="text-[10px] text-gray-400 leading-tight">{item.note}</p>}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                                m.matchScore >= 75 ? "bg-emerald-100 text-emerald-700" :
-                                m.matchScore >= 50 ? "bg-amber-100 text-amber-700" :
-                                "bg-gray-100 text-gray-600"
-                              }`}>
-                                {m.matchScore}% match
-                              </span>
-                            </div>
-                          ))}
+                            )
+                          })}
                         </div>
                       </div>
                     ))}
@@ -1211,7 +1357,31 @@ export default function PropertyManagerDashboard() {
 
             {/* Viewings sub-panel */}
             {tenantsSubTab === "viewings" && (
-          <div className="bg-white rounded-xl border border-gray-100 p-5">
+          <div className="space-y-4">
+            {/* Conflict banners */}
+            {properties.map((p) => {
+              const pid = p._id.toString()
+              const conflicts = conflictsCache[pid]
+              if (!conflicts || conflicts.length === 0) return null
+              return (
+                <div key={pid} className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-amber-900">{p.title} — {conflicts.length} scheduling conflict{conflicts.length > 1 ? "s" : ""}</p>
+                      <div className="mt-2 space-y-2">
+                        {conflicts.map((c) => (
+                          <div key={c.date} className="text-xs text-amber-800">
+                            <span className="font-medium">{c.date}</span>: {c.count} viewings booked — <span className="italic">{c.recommendation}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+            <div className="bg-white rounded-xl border border-gray-100 p-5">
             <h2 className="text-sm font-semibold text-gray-900 mb-1">Viewing Requests</h2>
             <p className="text-xs text-gray-500 mb-4">All viewing requests for your properties.</p>
             {loadingViewings ? (
@@ -1269,6 +1439,7 @@ export default function PropertyManagerDashboard() {
                 ))}
               </div>
             )}
+          </div>
           </div>
         )}
           </div>
@@ -1857,6 +2028,148 @@ export default function PropertyManagerDashboard() {
           />
         )}
       </div>
+
+      {/* Lease Generation Modal */}
+      {showLeaseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Generate Lease Agreement</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Fill in the details below to generate a printable lease.</p>
+              </div>
+              <button onClick={() => setShowLeaseModal(false)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+            </div>
+
+            {!leaseText ? (
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1.5">Property *</label>
+                    <select
+                      value={leaseForm.propertyId}
+                      onChange={(e) => setLeaseForm((f) => ({ ...f, propertyId: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                    >
+                      <option value="">Select property</option>
+                      {properties.map((p) => (
+                        <option key={p._id.toString()} value={p._id.toString()}>{p.title}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1.5">Tenant User ID *</label>
+                    <input
+                      type="text"
+                      value={leaseForm.tenantUserId}
+                      onChange={(e) => setLeaseForm((f) => ({ ...f, tenantUserId: e.target.value }))}
+                      placeholder="Paste tenant's user ID"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                    />
+                    {tenantMatches.length > 0 && (
+                      <div className="mt-1.5">
+                        <p className="text-xs text-gray-400 mb-1">Quick pick from matches:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {tenantMatches.flatMap((mg: any) => mg.matches.map((m: any) => (
+                            <button
+                              key={m.tenant._id}
+                              onClick={() => setLeaseForm((f) => ({ ...f, tenantUserId: m.tenant._id, rentAmount: f.rentAmount || (mg.property.rent?.toString() ?? "") }))}
+                              className="text-xs px-2 py-0.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full transition-colors"
+                            >
+                              {m.tenant.name}
+                            </button>
+                          )))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1.5">Start Date *</label>
+                    <input
+                      type="date"
+                      value={leaseForm.startDate}
+                      onChange={(e) => setLeaseForm((f) => ({ ...f, startDate: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1.5">End Date *</label>
+                    <input
+                      type="date"
+                      value={leaseForm.endDate}
+                      onChange={(e) => setLeaseForm((f) => ({ ...f, endDate: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1.5">Monthly Rent (₦) *</label>
+                    <input
+                      type="number"
+                      value={leaseForm.rentAmount}
+                      onChange={(e) => setLeaseForm((f) => ({ ...f, rentAmount: e.target.value }))}
+                      placeholder="e.g. 150000"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1.5">Security Deposit (₦)</label>
+                    <input
+                      type="number"
+                      value={leaseForm.depositAmount}
+                      onChange={(e) => setLeaseForm((f) => ({ ...f, depositAmount: e.target.value }))}
+                      placeholder="Optional"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => setShowLeaseModal(false)}
+                    className="flex-1 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-gray-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleGenerateLease}
+                    disabled={generatingLease}
+                    className="flex-1 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-700 disabled:opacity-60 transition-colors"
+                  >
+                    {generatingLease ? "Generating..." : "Generate Lease"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-6 space-y-4">
+                {leaseMeta && (
+                  <div className="grid grid-cols-2 gap-3 bg-gray-50 rounded-xl p-4 text-xs text-gray-600">
+                    <div><span className="font-medium text-gray-900">Property:</span> {leaseMeta.property.title}</div>
+                    <div><span className="font-medium text-gray-900">Tenant:</span> {leaseMeta.tenant.name}</div>
+                    <div><span className="font-medium text-gray-900">Period:</span> {leaseMeta.startDate?.slice(0,10)} → {leaseMeta.endDate?.slice(0,10)}</div>
+                    <div><span className="font-medium text-gray-900">Rent:</span> ₦{Number(leaseMeta.rentAmount).toLocaleString()}/mo</div>
+                  </div>
+                )}
+                <div className="bg-gray-50 rounded-xl p-4 max-h-72 overflow-y-auto">
+                  <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">{leaseText}</pre>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => { setLeaseText(null); setLeaseMeta(null) }}
+                    className="flex-1 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-gray-300 transition-colors"
+                  >
+                    ← Edit Details
+                  </button>
+                  <button
+                    onClick={handlePrintLease}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors"
+                  >
+                    <Printer className="h-4 w-4" /> Print / Save PDF
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

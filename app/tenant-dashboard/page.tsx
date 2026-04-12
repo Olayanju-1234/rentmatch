@@ -5,7 +5,7 @@ import {
   MapPin, Home, Heart, Search, Star, Bath, Bed, MessageSquare,
   Calendar, BarChart3, Settings, Bell, CreditCard, ChevronRight,
   RefreshCw, CheckCircle, Clock, XCircle, LogOut, User, Filter,
-  Receipt, RotateCcw, AlertCircle, TrendingUp, Wallet,
+  Receipt, RotateCcw, AlertCircle, TrendingUp, Wallet, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
 import { tenantsApi } from "@/src/lib/tenantsApi";
@@ -37,6 +37,8 @@ import type { Notification } from "@/components/ui/notification-bell";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { analyticsApi } from "@/src/lib/analyticsApi";
 import type { TenantAnalytics } from "@/src/lib/analyticsApi";
+import { insightsApi } from "@/src/lib/insightsApi";
+import type { NeighbourhoodInsights } from "@/src/lib/insightsApi";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 type Tab = "matches" | "viewings" | "saved" | "payments" | "preferences" | "messages" | "analytics" | "profile";
@@ -194,6 +196,11 @@ export default function TenantDashboard() {
   const [meridianResult, setMeridianResult] = useState<any>(null);
   const [fetchingMeridian, setFetchingMeridian] = useState(false);
   const [showMeridian, setShowMeridian] = useState(false);
+
+  // Neighbourhood insights
+  const [neighbourhoodCache, setNeighbourhoodCache] = useState<Record<string, NeighbourhoodInsights>>({})
+  const [loadingNeighbourhood, setLoadingNeighbourhood] = useState<Record<string, boolean>>({})
+  const [expandedNeighbourhood, setExpandedNeighbourhood] = useState<Record<string, boolean>>({})
 
   // Reviews
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -567,6 +574,21 @@ export default function TenantDashboard() {
       setSubmittingReview(false);
     }
   };
+
+  async function fetchNeighbourhood(propertyId: string, address?: string, lat?: number, lng?: number) {
+    if (neighbourhoodCache[propertyId] || loadingNeighbourhood[propertyId]) return
+    setLoadingNeighbourhood((prev) => ({ ...prev, [propertyId]: true }))
+    try {
+      const params: { lat?: number; lng?: number; address?: string } = {}
+      if (lat && lng) { params.lat = lat; params.lng = lng }
+      else if (address) { params.address = address }
+      const res = await insightsApi.getNeighbourhoodInsights(params)
+      if (res.success && res.data) {
+        setNeighbourhoodCache((prev) => ({ ...prev, [propertyId]: res.data! }))
+      }
+    } catch {}
+    finally { setLoadingNeighbourhood((prev) => ({ ...prev, [propertyId]: false })) }
+  }
 
   const bestMatch = matches.length > 0 ? Math.round(Math.max(...matches.map((m) => m.matchScore))) : null;
   const avgMatch = matches.length > 0 ? Math.round(matches.reduce((s, m) => s + m.matchScore, 0) / matches.length) : null;
@@ -1087,28 +1109,93 @@ export default function TenantDashboard() {
               return true;
             }).map((match) => {
               const property = properties.find((p) => p._id === match.propertyId);
+              const pid = match.propertyId
+              const neighbourhood = neighbourhoodCache[pid]
+              const loadingN = loadingNeighbourhood[pid]
+              const expandedN = expandedNeighbourhood[pid]
               return (
-                <div key={match.propertyId} id={`match-${match.propertyId}`}>
-                <PropertyCard
-                  propertyId={match.propertyId}
-                  title={property?.title ?? `Property ${match.propertyId}`}
-                  location={property?.location}
-                  rent={property?.rent}
-                  bedrooms={property?.bedrooms}
-                  bathrooms={property?.bathrooms}
-                  size={property?.size}
-                  status={property?.status}
-                  images={property?.images ?? []}
-                  matchScore={match.matchScore}
-                  rating={propertyRatings[match.propertyId]}
-                  isSaved={tenant?.savedProperties?.includes(match.propertyId)}
-                  isWaitlisted={waitlistedIds.has(match.propertyId)}
-                  joiningWaitlist={joiningWaitlist === match.propertyId}
-                  explanation={match.explanation ?? []}
-                  onSave={() => handleSaveProperty(match.propertyId)}
-                  onBook={property?.status === "available" && property ? () => { setViewingPropertyId(property._id); setShowViewingModal(true); } : undefined}
-                  onWaitlist={property?.status !== "available" ? () => handleJoinWaitlist(match.propertyId) : undefined}
-                />
+                <div key={pid} id={`match-${pid}`} className="space-y-0">
+                  <PropertyCard
+                    propertyId={pid}
+                    title={property?.title ?? `Property ${pid}`}
+                    location={property?.location}
+                    rent={property?.rent}
+                    bedrooms={property?.bedrooms}
+                    bathrooms={property?.bathrooms}
+                    size={property?.size}
+                    status={property?.status}
+                    images={property?.images ?? []}
+                    matchScore={match.matchScore}
+                    rating={propertyRatings[pid]}
+                    isSaved={tenant?.savedProperties?.includes(pid)}
+                    isWaitlisted={waitlistedIds.has(pid)}
+                    joiningWaitlist={joiningWaitlist === pid}
+                    explanation={match.explanation ?? []}
+                    onSave={() => handleSaveProperty(pid)}
+                    onBook={property?.status === "available" && property ? () => { setViewingPropertyId(property._id); setShowViewingModal(true); } : undefined}
+                    onWaitlist={property?.status !== "available" ? () => handleJoinWaitlist(pid) : undefined}
+                  />
+                  {/* Neighbourhood insights toggle */}
+                  <div className="border border-gray-100 rounded-b-xl -mt-1 bg-white">
+                    <button
+                      onClick={() => {
+                        const addr = property?.location?.address
+                          ? `${property.location.address}, ${property.location.city}`
+                          : undefined
+                        if (!neighbourhood && !loadingN) fetchNeighbourhood(pid, addr)
+                        setExpandedNeighbourhood((prev) => ({ ...prev, [pid]: !prev[pid] }))
+                      }}
+                      className="w-full flex items-center justify-between px-4 py-2.5 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors rounded-b-xl"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <MapPin className="h-3.5 w-3.5" />
+                        Neighbourhood Insights
+                        {neighbourhood && (
+                          <span className={`ml-1 font-semibold px-1.5 py-0.5 rounded-full text-[10px] ${
+                            neighbourhood.liveabilityScore >= 7 ? "bg-emerald-100 text-emerald-700" :
+                            neighbourhood.liveabilityScore >= 4 ? "bg-amber-100 text-amber-700" :
+                            "bg-gray-100 text-gray-600"
+                          }`}>{neighbourhood.liveabilityLabel}</span>
+                        )}
+                      </span>
+                      {loadingN ? (
+                        <div className="w-3.5 h-3.5 border border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                      ) : expandedN ? (
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                    {expandedN && neighbourhood && (
+                      <div className="px-4 pb-4 border-t border-gray-100">
+                        <div className="flex items-center gap-3 mt-3 mb-3">
+                          <div className={`text-2xl font-bold ${neighbourhood.liveabilityScore >= 7 ? "text-emerald-600" : neighbourhood.liveabilityScore >= 4 ? "text-amber-600" : "text-gray-500"}`}>
+                            {neighbourhood.liveabilityScore}<span className="text-sm font-normal text-gray-400">/10</span>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-gray-900">{neighbourhood.liveabilityLabel}</p>
+                            <p className="text-[10px] text-gray-400">Liveability Score</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {neighbourhood.categories.map((cat) => (
+                            <div key={cat.key} className="bg-gray-50 rounded-lg p-2.5">
+                              <p className="text-xs font-medium text-gray-700">{cat.name}</p>
+                              <p className="text-lg font-bold text-gray-900">{cat.count}</p>
+                              {cat.items.slice(0, 2).map((item, i) => (
+                                <p key={i} className="text-[10px] text-gray-400 truncate">{item.name}</p>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {expandedN && !neighbourhood && !loadingN && (
+                      <div className="px-4 pb-3 border-t border-gray-100">
+                        <p className="text-xs text-gray-400 mt-3">No neighbourhood data available for this location.</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
